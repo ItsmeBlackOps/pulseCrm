@@ -99,6 +99,7 @@ export default function LeadDetails() {
     fetchWithAuth('/columns')
       .then(res => res.json())
       .then((data: { title: string }[]) => setStatuses(data.map(c => c.title)));
+
     fetchWithAuth('/assignable-users')
       .then(res => res.json())
       .then((data: any[]) => {
@@ -113,16 +114,20 @@ export default function LeadDetails() {
       fetchWithAuth(`/crm-leads/${id}`)
         .then(res => res.json())
         .then(data => {
-          if (data.assignedto && !assignable.some(u => String(u.userid) === String(data.assignedto))) {
+          if (data.assignedto) {
             const uid = Number(data.assignedto);
-            const newList = [...assignable, { userid: uid, name: `User ${uid}` }];
-            setAssignable(newList);
+            setAssignable(prev => {
+              if (!prev.some(u => u.userid === uid)) {
+                return [...prev, { userid: uid, name: `User ${uid}` }];
+              }
+              return prev;
+            });
           }
           setForm({
-           firstname: data.firstname,
-          lastname: data.lastname,
-          email: data.email,
-          phone: data.phone || "",
+            firstname: data.firstname,
+            lastname: data.lastname,
+            email: data.email,
+            phone: data.phone || "",
           company: data.company,
           status: data.status,
           source: data.source || "",
@@ -140,7 +145,7 @@ export default function LeadDetails() {
           last4ssn: data.last4ssn || data.last4Ssn || ""
         });
     }
-  }, [id, user]);
+  }, [id, user, editMode, fetchWithAuth]);
 
   const addChecklistItem = () => {
     setForm({ ...form, checklist: [...form.checklist, { label: "", checked: false }] });
