@@ -97,12 +97,14 @@ export default function LeadDetails() {
   const [originalForm, setOriginalForm] = useState<LeadForm | null>(null);
   const editMode = !!id;
 
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
   useEffect(() => {
-    fetchWithAuth('http://localhost:3001/columns')
+    fetchWithAuth(`${API_BASE_URL}/columns`)
       .then(res => res.json())
       .then((data: { title: string }[]) => setStatuses(data.map(c => c.title)));
 
-    fetchWithAuth('http://localhost:3001/assignable-users')
+    fetchWithAuth(`${API_BASE_URL}/assignable-users`)
       .then(res => res.json())
       .then((data: any[]) => {
         const list = [...data];
@@ -113,7 +115,7 @@ export default function LeadDetails() {
       });
 
     if (editMode) {
-      fetchWithAuth(`http://localhost:3001/crm-leads/${id}`)
+      fetchWithAuth(`${API_BASE_URL}/crm-leads/${id}`)
         .then(res => res.json())
         .then(data => {
           if (data.assignedto) {
@@ -206,7 +208,7 @@ export default function LeadDetails() {
     }
 
     if (!editMode) {
-      const existing = await fetchWithAuth('http://localhost:3001/crm-leads').then(r => r.json());
+      const existing = await fetchWithAuth(`${API_BASE_URL}/crm-leads`).then(r => r.json());
       if (existing.some((l: any) => l.email === form.email || l.phone === form.phone || (form.legalnamessn && l.legalnamessn === form.legalnamessn) || (form.last4ssn && l.last4ssn === form.last4ssn))) {
         toast({ title: 'Duplicate lead found', variant: 'destructive' });
         return;
@@ -230,7 +232,7 @@ export default function LeadDetails() {
     };
 
     const method = editMode ? 'PUT' : 'POST';
-    const url = editMode ? `http://localhost:3001/crm-leads/${id}` : 'http://localhost:3001/crm-leads';
+    const url = editMode ? `${API_BASE_URL}/crm-leads/${id}` : `${API_BASE_URL}/crm-leads`;
     const res = await fetchWithAuth(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
@@ -254,7 +256,7 @@ export default function LeadDetails() {
             state: JSON.stringify(changes),
             changedAt: new Date().toISOString()
           };
-          await fetchWithAuth('http://localhost:3001/crmLeadHistory', {
+          await fetchWithAuth(`${API_BASE_URL}/crmLeadHistory`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(histPayload)

@@ -43,8 +43,10 @@ const Leads = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const leadsPerPage = 10;
 
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
   useEffect(() => {
-    fetchWithAuth('http://localhost:3001/assignable-users')
+    fetchWithAuth(`${API_BASE_URL}/assignable-users`)
       .then(res => res.json())
       .then(data => {
         const map: Record<string, string> = {};
@@ -52,7 +54,7 @@ const Leads = () => {
         data.forEach((u: any) => { map[String(u.userid)] = u.name; });
         setUserMap(map);
       });
-    fetchWithAuth('http://localhost:3001/crm-leads')
+    fetchWithAuth(`${API_BASE_URL}/crm-leads`)
       .then(res => res.json())
       .then(data => setLeads(data));
   }, [user]);

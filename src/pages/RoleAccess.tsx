@@ -19,16 +19,17 @@ const components = [
 export default function RoleAccess() {
   const { toast } = useToast();
   const { fetchWithAuth } = useAuth();
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const [roles, setRoles] = useState<string[]>([]);
   const [permissions, setPermissions] = useState<Record<string, Record<string, boolean>>>({});
 
   useEffect(() => {
-    fetchWithAuth('http://localhost:3001/roles')
+    fetchWithAuth(`${API_BASE_URL}/roles`)
       .then(res => res.json())
       .then((data: any[]) => setRoles(data.map(r => r.name)))
       .catch(() => toast({ title: 'Failed to load roles', variant: 'destructive' }));
 
-    fetchWithAuth('http://localhost:3001/role-access')
+    fetchWithAuth(`${API_BASE_URL}/role-access`)
       .then(res => res.json())
       .then(data => setPermissions(data))
       .catch(() => toast({ title: 'Failed to load permissions', variant: 'destructive' }));
@@ -45,7 +46,7 @@ export default function RoleAccess() {
   };
 
   const handleSave = async () => {
-    const res = await fetchWithAuth('http://localhost:3001/role-access', {
+    const res = await fetchWithAuth(`${API_BASE_URL}/role-access`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(permissions)

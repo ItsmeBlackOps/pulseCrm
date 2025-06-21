@@ -25,6 +25,7 @@ import RoleAccess from './pages/RoleAccess';
 import SignIn from './pages/auth/SignIn';
 
 import { AuthProvider } from './hooks/useAuth';
+import { RoleAccessProvider } from './hooks/useRoleAccess';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Component pages
@@ -64,89 +65,91 @@ const App = () => (
       <Toaster />
       <Sonner />
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/auth/signin" element={<SignIn />} />
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Index />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/contacts"
-              element={
-                <ProtectedRoute>
-                  <Contactus />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/analytics"
-              element={
-                <ProtectedRoute>
-                  <Analytics />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/messages"
-              element={
-                <ProtectedRoute>
-                  <Messages />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
-            <Route path="/deals" element={<ProtectedRoute><Deals /></ProtectedRoute>} />
-            <Route path="/deal-details" element={<ProtectedRoute><DealDetails /></ProtectedRoute>} />
-            <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
-            <Route path="/lead-details/:id?" element={<ProtectedRoute><LeadDetails /></ProtectedRoute>} />
-            <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-            <Route path="/report-details" element={<ProtectedRoute><ReportDetails /></ProtectedRoute>} />
-            <Route path="/add-contact" element={<ProtectedRoute><AddContact /></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-            <Route path="/role-access" element={<ProtectedRoute><RoleAccess /></ProtectedRoute>} />
-          
-          {/* Authentication routes */}
-            <Route path="/auth/signin" element={<SignIn />} />
-          
-          {/* Component routes */}
-          <Route path="/components/accordion" element={<ComponentAccordion />} />
-          <Route path="/components/avatar" element={<ComponentAvatar />} />
-          <Route path="/components/alerts" element={<ComponentAlerts />} />
-          <Route path="/components/badge" element={<ComponentBadge />} />
-          <Route path="/components/breadcrumb" element={<ComponentBreadcrumb />} />
-          <Route path="/components/buttons" element={<ComponentButtons />} />
-          <Route path="/components/calendar" element={<ComponentCalendar />} />
-          <Route path="/components/card" element={<ComponentCard />} />
-          <Route path="/components/carousel" element={<ComponentCarousel />} />
-          <Route path="/components/collapse" element={<ComponentCollapse />} />
-          <Route path="/components/dropdown" element={<ComponentDropdown />} />
-          <Route path="/components/gantt" element={<ComponentGantt />} />
-          <Route path="/components/list-group" element={<ComponentListGroup />} />
-          <Route path="/components/modals" element={<ComponentModals />} />
-          <Route path="/components/navs-tabs" element={<ComponentNavsTabs />} />
-          <Route path="/components/offcanvas" element={<ComponentOffcanvas />} />
-          <Route path="/components/progress" element={<ComponentProgress />} />
-          <Route path="/components/placeholder" element={<ComponentPlaceholder />} />
-          <Route path="/components/pagination" element={<ComponentPagination />} />
-          <Route path="/components/popovers" element={<ComponentPopovers />} />
-          <Route path="/components/scrollspy" element={<ComponentScrollspy />} />
-          <Route path="/components/sortable" element={<ComponentSortable />} />
-          <Route path="/components/spinners" element={<ComponentSpinners />} />
-          <Route path="/components/toast" element={<ComponentToast />} />
-          <Route path="/components/tooltips" element={<ComponentTooltips />} />
-          <Route path="/components/typed-text" element={<ComponentTypedText />} />
-          <Route path="/components/chat-widget" element={<ComponentChatWidget />} />
-          
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+        <RoleAccessProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/auth/signin" element={<SignIn />} />
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute componentId="dashboard">
+                    <Index />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/contacts"
+                element={
+                  <ProtectedRoute componentId="contacts">
+                    <Contactus />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/analytics"
+                element={
+                  <ProtectedRoute componentId="analytics">
+                    <Analytics />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/messages"
+                element={
+                  <ProtectedRoute componentId="messages">
+                    <Messages />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/calendar" element={<ProtectedRoute componentId="calendar"><Calendar /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute componentId="settings"><Settings /></ProtectedRoute>} />
+              <Route path="/support" element={<ProtectedRoute componentId="support"><Support /></ProtectedRoute>} />
+              <Route path="/deals" element={<ProtectedRoute componentId="deals"><Deals /></ProtectedRoute>} />
+              <Route path="/deal-details" element={<ProtectedRoute componentId="deals"><DealDetails /></ProtectedRoute>} />
+              <Route path="/leads" element={<ProtectedRoute componentId="leads"><Leads /></ProtectedRoute>} />
+              <Route path="/lead-details/:id?" element={<ProtectedRoute componentId="leads"><LeadDetails /></ProtectedRoute>} />
+              <Route path="/reports" element={<ProtectedRoute componentId="reports"><Reports /></ProtectedRoute>} />
+              <Route path="/report-details" element={<ProtectedRoute componentId="reports"><ReportDetails /></ProtectedRoute>} />
+              <Route path="/add-contact" element={<ProtectedRoute componentId="contacts"><AddContact /></ProtectedRoute>} />
+              <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+              <Route path="/role-access" element={<ProtectedRoute componentId="settings"><RoleAccess /></ProtectedRoute>} />
+
+              {/* Authentication routes */}
+              <Route path="/auth/signin" element={<SignIn />} />
+
+              {/* Component routes */}
+              <Route path="/components/accordion" element={<ComponentAccordion />} />
+              <Route path="/components/avatar" element={<ComponentAvatar />} />
+              <Route path="/components/alerts" element={<ComponentAlerts />} />
+              <Route path="/components/badge" element={<ComponentBadge />} />
+              <Route path="/components/breadcrumb" element={<ComponentBreadcrumb />} />
+              <Route path="/components/buttons" element={<ComponentButtons />} />
+              <Route path="/components/calendar" element={<ComponentCalendar />} />
+              <Route path="/components/card" element={<ComponentCard />} />
+              <Route path="/components/carousel" element={<ComponentCarousel />} />
+              <Route path="/components/collapse" element={<ComponentCollapse />} />
+              <Route path="/components/dropdown" element={<ComponentDropdown />} />
+              <Route path="/components/gantt" element={<ComponentGantt />} />
+              <Route path="/components/list-group" element={<ComponentListGroup />} />
+              <Route path="/components/modals" element={<ComponentModals />} />
+              <Route path="/components/navs-tabs" element={<ComponentNavsTabs />} />
+              <Route path="/components/offcanvas" element={<ComponentOffcanvas />} />
+              <Route path="/components/progress" element={<ComponentProgress />} />
+              <Route path="/components/placeholder" element={<ComponentPlaceholder />} />
+              <Route path="/components/pagination" element={<ComponentPagination />} />
+              <Route path="/components/popovers" element={<ComponentPopovers />} />
+              <Route path="/components/scrollspy" element={<ComponentScrollspy />} />
+              <Route path="/components/sortable" element={<ComponentSortable />} />
+              <Route path="/components/spinners" element={<ComponentSpinners />} />
+              <Route path="/components/toast" element={<ComponentToast />} />
+              <Route path="/components/tooltips" element={<ComponentTooltips />} />
+              <Route path="/components/typed-text" element={<ComponentTypedText />} />
+              <Route path="/components/chat-widget" element={<ComponentChatWidget />} />
+
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </RoleAccessProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

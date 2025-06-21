@@ -31,8 +31,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
   const login = async (email: string, password: string) => {
-    const res = await fetch("http://localhost:3001/login", {
+    const res = await fetch(`${API_BASE_URL}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password })
@@ -60,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = async () => {
     if (!token) return;
-    const res = await fetchWithAuth("http://localhost:3001/me");
+    const res = await fetchWithAuth(`${API_BASE_URL}/me`);
     if (res.ok) {
       const data = await res.json();
       setUser(data);
