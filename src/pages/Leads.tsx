@@ -1,68 +1,35 @@
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, Plus, Filter, Target, TrendingUp, Users, Star } from 'lucide-react';
+import { Search, Plus, Filter, Target, TrendingUp, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Lead {
-  id: string;
-  name: string;
+  id: number;
+  firstname: string;
+  lastname: string;
   email: string;
   company: string;
-  source: string;
-  status: 'new' | 'contacted' | 'qualified' | 'unqualified' | 'converted';
-  score: number;
-  createdDate: string;
-  owner: string;
-  avatar: string;
+  source?: string;
+  status: string;
+  assignedto?: string;
 }
 
 const Leads = () => {
+  const { fetchWithAuth } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
+  const [leads, setLeads] = useState<Lead[]>([]);
 
-  const leads: Lead[] = [
-    {
-      id: '1',
-      name: 'Alice Johnson',
-      email: 'alice@example.com',
-      company: 'Tech Solutions Inc.',
-      source: 'Website',
-      status: 'new',
-      score: 85,
-      createdDate: '2024-01-10',
-      owner: 'John Smith',
-      avatar: '/placeholder.svg'
-    },
-    {
-      id: '2',
-      name: 'Bob Wilson',
-      email: 'bob@startup.com',
-      company: 'Startup ABC',
-      source: 'LinkedIn',
-      status: 'contacted',
-      score: 72,
-      createdDate: '2024-01-08',
-      owner: 'Sarah Johnson',
-      avatar: '/placeholder.svg'
-    },
-    {
-      id: '3',
-      name: 'Carol Davis',
-      email: 'carol@bigcorp.com',
-      company: 'BigCorp Ltd.',
-      source: 'Referral',
-      status: 'qualified',
-      score: 95,
-      createdDate: '2024-01-05',
-      owner: 'Mike Wilson',
-      avatar: '/placeholder.svg'
-    }
-  ];
+  useEffect(() => {
+    fetchWithAuth('/crm-leads')
+      .then(res => res.json())
+      .then(data => setLeads(data));
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -75,21 +42,14 @@ const Leads = () => {
     }
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-600';
-    if (score >= 60) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
   const filteredLeads = leads.filter(lead =>
-    lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    `${lead.firstname} ${lead.lastname}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
     lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     lead.company.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalLeads = leads.length;
   const qualifiedLeads = leads.filter(lead => lead.status === 'qualified').length;
-  const avgScore = leads.reduce((sum, lead) => sum + lead.score, 0) / leads.length;
 
   return (
     <DashboardLayout>
@@ -127,16 +87,6 @@ const Leads = () => {
             <CardContent>
               <div className="text-2xl font-bold">{qualifiedLeads}</div>
               <p className="text-xs text-muted-foreground">+2 from last week</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg. Lead Score</CardTitle>
-              <Star className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{avgScore.toFixed(0)}</div>
-              <p className="text-xs text-muted-foreground">+3 points this month</p>
             </CardContent>
           </Card>
           <Card>
@@ -179,17 +129,10 @@ const Leads = () => {
           <CardContent>
             <div className="space-y-4">
               {filteredLeads.map((lead) => (
-                <div key={lead.id} className="flex items-center space-x-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={lead.avatar} alt={lead.name} />
-                    <AvatarFallback>{lead.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                  </Avatar>
+                <Link key={lead.id} to={`/lead-details/${lead.id}`} className="flex items-center space-x-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold">{lead.name}</h3>
-                      <div className={`text-lg font-bold ${getScoreColor(lead.score)}`}>
-                        {lead.score}/100
-                      </div>
+                      <h3 className="font-semibold">{lead.firstname} {lead.lastname}</h3>
                     </div>
                     <p className="text-sm text-muted-foreground">{lead.email}</p>
                     <p className="text-sm text-muted-foreground">{lead.company}</p>
@@ -197,19 +140,12 @@ const Leads = () => {
                       <Badge className={getStatusColor(lead.status)}>
                         {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
                       </Badge>
-                      <span className="text-sm text-muted-foreground">
-                        Source: {lead.source}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        Created: {new Date(lead.createdDate).toLocaleDateString()}
-                      </span>
+                      {lead.source && (
+                        <span className="text-sm text-muted-foreground">Source: {lead.source}</span>
+                      )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">{lead.owner}</p>
-                    <p className="text-sm text-muted-foreground">Owner</p>
-                  </div>
-                </div>
+                </Link>
               ))}
             </div>
           </CardContent>

@@ -18,12 +18,13 @@ import LeadDetails from './pages/LeadDetails';
 import Reports from './pages/Reports';
 import ReportDetails from './pages/ReportDetails';
 import AddContact from './pages/AddContact';
+import Profile from './pages/Profile';
 
 // Authentication pages
 import SignIn from './pages/auth/SignIn';
-import SignUp from './pages/auth/SignUp';
-import ForgotPassword from './pages/auth/ForgotPassword';
-import ResetPassword from './pages/auth/ResetPassword';
+
+import { AuthProvider } from './hooks/useAuth';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Component pages
 import ComponentAccordion from './pages/components/Accordion';
@@ -61,28 +62,56 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/contacts" element={<Contactus />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/messages" element={<Messages />} />
-          <Route path="/calendar" element={<Calendar />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/support" element={<Support />} />
-          <Route path="/deals" element={<Deals />} />
-          <Route path="/deal-details" element={<DealDetails />} />
-          <Route path="/leads" element={<Leads />} />
-          <Route path="/lead-details" element={<LeadDetails />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/report-details" element={<ReportDetails />} />
-          <Route path="/add-contact" element={<AddContact />} />
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/auth/signin" element={<SignIn />} />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Index />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/contacts"
+              element={
+                <ProtectedRoute>
+                  <Contactus />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/analytics"
+              element={
+                <ProtectedRoute>
+                  <Analytics />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/messages"
+              element={
+                <ProtectedRoute>
+                  <Messages />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
+            <Route path="/deals" element={<ProtectedRoute><Deals /></ProtectedRoute>} />
+            <Route path="/deal-details" element={<ProtectedRoute><DealDetails /></ProtectedRoute>} />
+            <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
+            <Route path="/lead-details/:id?" element={<ProtectedRoute><LeadDetails /></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+            <Route path="/report-details" element={<ProtectedRoute><ReportDetails /></ProtectedRoute>} />
+            <Route path="/add-contact" element={<ProtectedRoute><AddContact /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           
           {/* Authentication routes */}
-          <Route path="/auth/signin" element={<SignIn />} />
-          <Route path="/auth/signup" element={<SignUp />} />
-          <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-          <Route path="/auth/reset-password" element={<ResetPassword />} />
+            <Route path="/auth/signin" element={<SignIn />} />
           
           {/* Component routes */}
           <Route path="/components/accordion" element={<ComponentAccordion />} />
@@ -116,6 +145,7 @@ const App = () => (
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

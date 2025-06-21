@@ -166,9 +166,6 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
 
             <nav className="grid gap-1">
               <NavItem icon={Lock} label="Sign In" href="/auth/signin" isCollapsed={isCollapsed} />
-              <NavItem icon={UserCheck} label="Sign Up" href="/auth/signup" isCollapsed={isCollapsed} />
-              <NavItem icon={KeyRound} label="Forgot Password" href="/auth/forgot-password" isCollapsed={isCollapsed} />
-              <NavItem icon={RotateCcw} label="Reset Password" href="/auth/reset-password" isCollapsed={isCollapsed} />
             </nav>
 
             <Separator className="my-4" />
