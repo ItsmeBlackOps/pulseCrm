@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { LoadingOverlay } from "@/components/ui/loading-overlay";
 
 const companies = [
   { prefix: "VIZ", name: "Vizva Inc." },
@@ -95,63 +96,70 @@ export default function LeadDetails() {
   const [statuses, setStatuses] = useState<string[]>([]);
   const [assignable, setAssignable] = useState<{ userid: number; name: string }[]>([]);
   const [originalForm, setOriginalForm] = useState<LeadForm | null>(null);
+  const [loading, setLoading] = useState(true);
   const editMode = !!id;
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   useEffect(() => {
-    fetchWithAuth(`${API_BASE_URL}/columns`)
-      .then(res => res.json())
-      .then((data: { title: string }[]) => setStatuses(data.map(c => c.title)));
-
-    fetchWithAuth(`${API_BASE_URL}/assignable-users`)
-      .then(res => res.json())
-      .then((data: any[]) => {
-        const list = [...data];
-        if (user) {
-          list.unshift({ userid: user.userid, name: user.name });
-        }
-        setAssignable(list);
-      });
+    setLoading(true);
+    const promises = [
+      fetchWithAuth(`${API_BASE_URL}/columns`)
+        .then(res => res.json())
+        .then((data: { title: string }[]) => setStatuses(data.map(c => c.title))),
+      fetchWithAuth(`${API_BASE_URL}/assignable-users`)
+        .then(res => res.json())
+        .then((data: any[]) => {
+          const list = [...data];
+          if (user) {
+            list.unshift({ userid: user.userid, name: user.name });
+          }
+          setAssignable(list);
+        })
+    ];
 
     if (editMode) {
-      fetchWithAuth(`${API_BASE_URL}/crm-leads/${id}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.assignedto) {
-            const uid = Number(data.assignedto);
-            setAssignable(prev => {
-              if (!prev.some(u => u.userid === uid)) {
-                return [...prev, { userid: uid, name: `User ${uid}` }];
-              }
-              return prev;
-            });
-          }
-          const loaded = {
-            firstname: data.firstname,
-            lastname: data.lastname,
-            email: data.email,
-            phone: data.phone || "",
-          company: data.company,
-          status: data.status,
-          source: data.source || "",
-          otherSource: data.otherSource || data.othersource || "",
-          notes: data.notes || "",
-          assignedto: data.assignedto || "",
-          createdat: data.createdat,
-          updatedat: data.updatedat,
-          lastcontactedat: data.lastcontactedat,
-          expectedrevenue: data.expectedrevenue,
-          createdby: data.createdby,
-          visastatusid: data.visastatusid,
-          checklist: data.checklist || [],
-          legalnamessn: data.legalnamessn || data.legalNameSsn || "",
-          last4ssn: data.last4ssn || data.last4Ssn || ""
-          };
-          setForm(loaded);
-          setOriginalForm(JSON.parse(JSON.stringify(loaded)));
-        });
-  }
+      promises.push(
+        fetchWithAuth(`${API_BASE_URL}/crm-leads/${id}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.assignedto) {
+              const uid = Number(data.assignedto);
+              setAssignable(prev => {
+                if (!prev.some(u => u.userid === uid)) {
+                  return [...prev, { userid: uid, name: `User ${uid}` }];
+                }
+                return prev;
+              });
+            }
+            const loaded = {
+              firstname: data.firstname,
+              lastname: data.lastname,
+              email: data.email,
+              phone: data.phone || "",
+              company: data.company,
+              status: data.status,
+              source: data.source || "",
+              otherSource: data.otherSource || data.othersource || "",
+              notes: data.notes || "",
+              assignedto: data.assignedto || "",
+              createdat: data.createdat,
+              updatedat: data.updatedat,
+              lastcontactedat: data.lastcontactedat,
+              expectedrevenue: data.expectedrevenue,
+              createdby: data.createdby,
+              visastatusid: data.visastatusid,
+              checklist: data.checklist || [],
+              legalnamessn: data.legalnamessn || data.legalNameSsn || "",
+              last4ssn: data.last4ssn || data.last4Ssn || ""
+            };
+            setForm(loaded);
+            setOriginalForm(JSON.parse(JSON.stringify(loaded)));
+          })
+      );
+    }
+
+    Promise.all(promises).finally(() => setLoading(false));
   }, [id, user, editMode, fetchWithAuth]);
 
   const addChecklistItem = () => {
@@ -274,7 +282,10 @@ export default function LeadDetails() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="relative min-h-[200px]">
+        {loading && <LoadingOverlay />}
+        {!loading && (
+        <div className="space-y-6">
         <div className="flex items-center space-x-4">
           <Button variant="outline" size="icon" asChild>
             <Link to="/leads">
@@ -432,6 +443,8 @@ export default function LeadDetails() {
             </form>
           </CardContent>
         </Card>
+        </div>
+        )}
       </div>
     </DashboardLayout>
   );

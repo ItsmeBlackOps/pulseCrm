@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { LoadingOverlay } from '@/components/ui/loading-overlay';
 
 const components = [
   { id: 'dashboard', name: 'Dashboard' },
@@ -22,17 +23,20 @@ export default function RoleAccess() {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const [roles, setRoles] = useState<string[]>([]);
   const [permissions, setPermissions] = useState<Record<string, Record<string, boolean>>>({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchWithAuth(`${API_BASE_URL}/roles`)
-      .then(res => res.json())
-      .then((data: any[]) => setRoles(data.map(r => r.name)))
-      .catch(() => toast({ title: 'Failed to load roles', variant: 'destructive' }));
-
-    fetchWithAuth(`${API_BASE_URL}/role-access`)
-      .then(res => res.json())
-      .then(data => setPermissions(data))
-      .catch(() => toast({ title: 'Failed to load permissions', variant: 'destructive' }));
+    setLoading(true);
+    Promise.all([
+      fetchWithAuth(`${API_BASE_URL}/roles`)
+        .then(res => res.json())
+        .then((data: any[]) => setRoles(data.map(r => r.name)))
+        .catch(() => toast({ title: 'Failed to load roles', variant: 'destructive' })),
+      fetchWithAuth(`${API_BASE_URL}/role-access`)
+        .then(res => res.json())
+        .then(data => setPermissions(data))
+        .catch(() => toast({ title: 'Failed to load permissions', variant: 'destructive' }))
+    ]).finally(() => setLoading(false));
   }, [fetchWithAuth, toast]);
 
   const togglePermission = (componentId: string, role: string) => {
@@ -61,6 +65,9 @@ export default function RoleAccess() {
 
   return (
     <DashboardLayout>
+      <div className="relative min-h-[200px]">
+        {loading && <LoadingOverlay />}
+        {!loading && (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold tracking-tight">Role Access</h1>
         <Card>
@@ -96,6 +103,8 @@ export default function RoleAccess() {
           </CardContent>
         </Card>
         <Button onClick={handleSave}>Save</Button>
+      </div>
+        )}
       </div>
     </DashboardLayout>
   );
