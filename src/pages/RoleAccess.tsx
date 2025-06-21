@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
-const roles = ['Admin', 'Manager', 'User'];
 const components = [
   { id: 'dashboard', name: 'Dashboard' },
   { id: 'contacts', name: 'Contacts' },
@@ -20,9 +19,15 @@ const components = [
 export default function RoleAccess() {
   const { toast } = useToast();
   const { fetchWithAuth } = useAuth();
+  const [roles, setRoles] = useState<string[]>([]);
   const [permissions, setPermissions] = useState<Record<string, Record<string, boolean>>>({});
 
   useEffect(() => {
+    fetchWithAuth('http://localhost:3001/roles')
+      .then(res => res.json())
+      .then((data: any[]) => setRoles(data.map(r => r.name)))
+      .catch(() => toast({ title: 'Failed to load roles', variant: 'destructive' }));
+
     fetchWithAuth('http://localhost:3001/role-access')
       .then(res => res.json())
       .then(data => setPermissions(data))
@@ -32,7 +37,10 @@ export default function RoleAccess() {
   const togglePermission = (componentId: string, role: string) => {
     setPermissions(prev => ({
       ...prev,
-      [componentId]: { ...prev[componentId], [role]: !prev[componentId][role] }
+      [componentId]: {
+        ...prev[componentId],
+        [role]: !prev?.[componentId]?.[role]
+      }
     }));
   };
 
@@ -75,7 +83,7 @@ export default function RoleAccess() {
                     {roles.map(role => (
                       <TableCell key={role} className="text-center">
                         <Checkbox
-                          checked={permissions[comp.id][role]}
+                          checked={permissions?.[comp.id]?.[role] ?? false}
                           onCheckedChange={() => togglePermission(comp.id, role)}
                         />
                       </TableCell>
