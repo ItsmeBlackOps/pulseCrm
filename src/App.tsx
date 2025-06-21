@@ -26,6 +26,7 @@ import SignIn from './pages/auth/SignIn';
 
 import { AuthProvider } from './hooks/useAuth';
 import { RoleAccessProvider } from './hooks/useRoleAccess';
+import { NotificationProvider } from './hooks/useNotifications';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Component pages
@@ -66,7 +67,8 @@ const App = () => (
       <Sonner />
       <AuthProvider>
         <RoleAccessProvider>
-          <BrowserRouter>
+          <NotificationProvider>
+            <BrowserRouter>
             <Routes>
               <Route path="/auth/signin" element={<SignIn />} />
               <Route
@@ -149,6 +151,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
+          </NotificationProvider>
         </RoleAccessProvider>
       </AuthProvider>
     </TooltipProvider>

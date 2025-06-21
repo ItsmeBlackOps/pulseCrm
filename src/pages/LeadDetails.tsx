@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useNotifications } from "@/hooks/useNotifications";
 import { LoadingOverlay } from "@/components/ui/loading-overlay";
 
 const companies = [
@@ -79,6 +80,7 @@ export default function LeadDetails() {
   const { id } = useParams<{ id: string }>();
   const { fetchWithAuth, user } = useAuth();
   const { toast } = useToast();
+  const { addNotification } = useNotifications();
   const navigate = useNavigate();
   const [form, setForm] = useState<LeadForm>({
     firstname: "",
@@ -271,7 +273,9 @@ export default function LeadDetails() {
           });
         }
       }
-      toast({ title: editMode ? 'Lead updated' : 'Lead created' });
+      const msg = editMode ? 'Lead updated' : 'Lead created';
+      toast({ title: msg });
+      addNotification(msg);
       navigate('/leads');
     } else {
       toast({ title: data.message || 'Error saving lead', variant: 'destructive' });
