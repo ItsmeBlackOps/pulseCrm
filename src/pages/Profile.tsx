@@ -19,7 +19,7 @@ export default function Profile() {
   const changePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
-    const res = await fetchWithAuth("/change-password", {
+    const res = await fetchWithAuth("http://localhost:3001/change-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ currentPassword, newPassword })

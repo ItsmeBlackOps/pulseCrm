@@ -28,7 +28,7 @@ const Leads = () => {
   const [userMap, setUserMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    fetchWithAuth('/assignable-users')
+    fetchWithAuth('http://localhost:3001/assignable-users')
       .then(res => res.json())
       .then(data => {
         const map: Record<string, string> = {};
@@ -36,7 +36,7 @@ const Leads = () => {
         data.forEach((u: any) => { map[String(u.userid)] = u.name; });
         setUserMap(map);
       });
-    fetchWithAuth('/crm-leads')
+    fetchWithAuth('http://localhost:3001/crm-leads')
       .then(res => res.json())
       .then(data => setLeads(data));
   }, [user]);

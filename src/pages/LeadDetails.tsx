@@ -96,11 +96,11 @@ export default function LeadDetails() {
   const editMode = !!id;
 
   useEffect(() => {
-    fetchWithAuth('/columns')
+    fetchWithAuth('http://localhost:3001/columns')
       .then(res => res.json())
       .then((data: { title: string }[]) => setStatuses(data.map(c => c.title)));
 
-    fetchWithAuth('/assignable-users')
+    fetchWithAuth('http://localhost:3001/assignable-users')
       .then(res => res.json())
       .then((data: any[]) => {
         const list = [...data];
@@ -111,7 +111,7 @@ export default function LeadDetails() {
       });
 
     if (editMode) {
-      fetchWithAuth(`/crm-leads/${id}`)
+      fetchWithAuth(`http://localhost:3001/crm-leads/${id}`)
         .then(res => res.json())
         .then(data => {
           if (data.assignedto) {
@@ -144,7 +144,8 @@ export default function LeadDetails() {
           legalnamessn: data.legalnamessn || data.legalNameSsn || "",
           last4ssn: data.last4ssn || data.last4Ssn || ""
         });
-    }
+    });
+  }
   }, [id, user, editMode, fetchWithAuth]);
 
   const addChecklistItem = () => {
@@ -184,7 +185,7 @@ export default function LeadDetails() {
     e.preventDefault();
     setError(null);
     if (!editMode) {
-      const existing = await fetchWithAuth('/crm-leads').then(r => r.json());
+      const existing = await fetchWithAuth('http://localhost:3001/crm-leads').then(r => r.json());
       if (existing.some((l: any) => l.email === form.email)) {
         setError('Lead with this email or phone already exists');
         return;
@@ -211,7 +212,7 @@ export default function LeadDetails() {
     };
 
     const method = editMode ? 'PUT' : 'POST';
-    const url = editMode ? `/crm-leads/${id}` : '/crm-leads';
+    const url = editMode ? `http://localhost:3001/crm-leads/${id}` : 'http://localhost:3001/crm-leads';
     const res = await fetchWithAuth(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
