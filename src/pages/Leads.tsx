@@ -185,6 +185,7 @@ const Leads = () => {
                         <span>{lead.email}</span>
                         {lead.phone && <span>{lead.phone}</span>}
                       </div>
+
                       <div className="flex flex-wrap items-center gap-2 mt-2">
                         <Badge className={getStatusColor(lead.status)}>
                           {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
