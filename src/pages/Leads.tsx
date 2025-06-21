@@ -167,15 +167,25 @@ const Leads = () => {
                 {paginatedLeads.map((lead) => (
                   <div key={lead.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                     <div className="flex-1 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-semibold">{lead.firstname} {lead.lastname}</h3>
-                        <Link to={`/lead-details/${lead.id}`} className="text-sm text-primary underline">Edit</Link>
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-semibold truncate">
+                          {lead.firstname} {lead.lastname}
+                        </h3>
+                        <Badge variant="secondary" className="ml-auto">
+                          {lead.company}
+                        </Badge>
+                        <Link
+                          to={`/lead-details/${lead.id}`}
+                          className="text-sm text-primary underline"
+                        >
+                          Edit
+                        </Link>
                       </div>
                       <div className="flex gap-4 text-sm text-muted-foreground">
                         <span>{lead.email}</span>
                         {lead.phone && <span>{lead.phone}</span>}
                       </div>
-                      <p className="text-sm text-muted-foreground">{lead.company}</p>
+
                       <div className="flex flex-wrap items-center gap-2 mt-2">
                         <Badge className={getStatusColor(lead.status)}>
                           {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}

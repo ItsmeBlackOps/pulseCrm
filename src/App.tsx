@@ -19,6 +19,7 @@ import Reports from './pages/Reports';
 import ReportDetails from './pages/ReportDetails';
 import AddContact from './pages/AddContact';
 import Profile from './pages/Profile';
+import RoleAccess from './pages/RoleAccess';
 
 // Authentication pages
 import SignIn from './pages/auth/SignIn';
@@ -109,6 +110,7 @@ const App = () => (
             <Route path="/report-details" element={<ProtectedRoute><ReportDetails /></ProtectedRoute>} />
             <Route path="/add-contact" element={<ProtectedRoute><AddContact /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/role-access" element={<ProtectedRoute><RoleAccess /></ProtectedRoute>} />
           
           {/* Authentication routes */}
             <Route path="/auth/signin" element={<SignIn />} />

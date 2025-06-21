@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 const companies = [
   { prefix: "VIZ", name: "Vizva Inc." },
@@ -76,6 +77,7 @@ interface LeadForm {
 export default function LeadDetails() {
   const { id } = useParams<{ id: string }>();
   const { fetchWithAuth, user } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [form, setForm] = useState<LeadForm>({
     firstname: "",
@@ -83,14 +85,13 @@ export default function LeadDetails() {
     email: "",
     phone: "",
     company: "",
-    status: "new",
+    status: "lead",
     source: "",
     otherSource: "",
     notes: "",
     assignedto: "",
     checklist: []
   });
-  const [error, setError] = useState<string | null>(null);
   const [statuses, setStatuses] = useState<string[]>([]);
   const [assignable, setAssignable] = useState<{ userid: number; name: string }[]>([]);
   const [originalForm, setOriginalForm] = useState<LeadForm | null>(null);
@@ -146,7 +147,7 @@ export default function LeadDetails() {
           last4ssn: data.last4ssn || data.last4Ssn || ""
           };
           setForm(loaded);
-          setOriginalForm(loaded);
+          setOriginalForm(JSON.parse(JSON.stringify(loaded)));
         });
   }
   }, [id, user, editMode, fetchWithAuth]);
@@ -173,12 +174,19 @@ export default function LeadDetails() {
     setForm({ ...form, checklist: list });
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
     if (name === 'firstname' || name === 'lastname') {
       setForm({ ...form, [name]: capitalize(value) });
     } else if (name === 'phone') {
       setForm({ ...form, phone: formatPhone(value) });
+    } else if (name === 'legalnamessn') {
+      setForm({ ...form, legalnamessn: capitalize(value) });
+    } else if (name === 'last4ssn') {
+      const digits = value.replace(/\D/g, '').slice(0, 4);
+      setForm({ ...form, last4ssn: digits });
     } else {
       setForm({ ...form, [name]: value });
     }
@@ -186,20 +194,27 @@ export default function LeadDetails() {
 
   const saveLead = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+
+    if (!form.firstname || !form.lastname || !form.email || !form.phone || !form.company) {
+      toast({ title: 'Please fill all required fields', variant: 'destructive' });
+      return;
+    }
+
+    if (!form.visastatusid) {
+      toast({ title: 'Visa status is required', variant: 'destructive' });
+      return;
+    }
+
     if (!editMode) {
       const existing = await fetchWithAuth('http://localhost:3001/crm-leads').then(r => r.json());
-      if (existing.some((l: any) => l.email === form.email)) {
-        setError('Lead with this email or phone already exists');
-        return;
-      }
-      if (form.legalnamessn && existing.some((l: any) => l.legalnamessn === form.legalnamessn)) {
-        setError('Lead with this SSN already exists');
+      if (existing.some((l: any) => l.email === form.email || l.phone === form.phone || (form.legalnamessn && l.legalnamessn === form.legalnamessn) || (form.last4ssn && l.last4ssn === form.last4ssn))) {
+        toast({ title: 'Duplicate lead found', variant: 'destructive' });
         return;
       }
     }
+
     if (form.status === 'signed' && (!form.legalnamessn || !form.last4ssn)) {
-      setError('Legal Name SSN and Last4 SSN required for signed status');
+      toast({ title: 'Legal Name SSN and Last4 SSN required for signed status', variant: 'destructive' });
       return;
     }
 
@@ -228,7 +243,7 @@ export default function LeadDetails() {
         if (originalForm) {
           Object.keys(form).forEach(key => {
             const k = key as keyof LeadForm;
-            if (form[k] !== (originalForm as any)[k]) {
+            if (JSON.stringify(form[k]) !== JSON.stringify((originalForm as any)[k])) {
               changes[k] = { old: (originalForm as any)[k], new: form[k] };
             }
           });
@@ -246,9 +261,10 @@ export default function LeadDetails() {
           });
         }
       }
+      toast({ title: editMode ? 'Lead updated' : 'Lead created' });
       navigate('/leads');
     } else {
-      setError(data.message || 'Error saving lead');
+      toast({ title: data.message || 'Error saving lead', variant: 'destructive' });
     }
   };
 
@@ -381,25 +397,35 @@ export default function LeadDetails() {
                 ))}
                 <Button type="button" variant="outline" onClick={addChecklistItem}>Add Item</Button>
               </div>
-              {form.status === 'signed' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="legalnamessn">Legal Name SSN</Label>
-                    <Input id="legalnamessn" name="legalnamessn" value={form.legalnamessn} onChange={handleChange} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="last4ssn">Last 4 SSN</Label>
-                    <Input id="last4ssn" name="last4ssn" value={form.last4ssn} onChange={handleChange} />
-                  </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="legalnamessn">Legal Name SSN</Label>
+                  <Input
+                    id="legalnamessn"
+                    name="legalnamessn"
+                    value={form.legalnamessn}
+                    onChange={handleChange}
+                    required={form.status === 'signed'}
+                  />
                 </div>
-              )}
+                <div className="space-y-2">
+                  <Label htmlFor="last4ssn">Last 4 SSN</Label>
+                  <Input
+                    id="last4ssn"
+                    name="last4ssn"
+                    value={form.last4ssn}
+                    onChange={handleChange}
+                    maxLength={4}
+                    required={form.status === 'signed'}
+                  />
+                </div>
+              </div>
               {stageFields && (
                 <div className="space-y-2">
                   <Label htmlFor="notes">Notes</Label>
                   <Textarea id="notes" name="notes" value={form.notes} onChange={handleChange} />
                 </div>
               )}
-              {error && <p className="text-sm text-red-600">{error}</p>}
               <Button type="submit">Save</Button>
             </form>
           </CardContent>

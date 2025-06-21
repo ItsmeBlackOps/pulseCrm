@@ -212,6 +212,7 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
         {/* Fixed Footer */}
         <div className="border-t border-border p-2 flex-shrink-0">
           <nav className="grid gap-1">
+            <NavItem icon={KeyRound} label="Role Access" href="/role-access" isCollapsed={isCollapsed} />
             <NavItem icon={Settings} label="Settings" href="/settings" isCollapsed={isCollapsed} />
             <NavItem icon={LifeBuoy} label="Support" href="/support" isCollapsed={isCollapsed} />
             <Button
