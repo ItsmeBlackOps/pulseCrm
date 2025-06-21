@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 const roles = ['Admin', 'Manager', 'User'];
 const components = [
@@ -18,14 +19,15 @@ const components = [
 
 export default function RoleAccess() {
   const { toast } = useToast();
-  const [permissions, setPermissions] = useState(() => {
-    const initial: Record<string, Record<string, boolean>> = {};
-    components.forEach(c => {
-      initial[c.id] = {};
-      roles.forEach(r => { initial[c.id][r] = r === 'Admin'; });
-    });
-    return initial;
-  });
+  const { fetchWithAuth } = useAuth();
+  const [permissions, setPermissions] = useState<Record<string, Record<string, boolean>>>({});
+
+  useEffect(() => {
+    fetchWithAuth('http://localhost:3001/role-access')
+      .then(res => res.json())
+      .then(data => setPermissions(data))
+      .catch(() => toast({ title: 'Failed to load permissions', variant: 'destructive' }));
+  }, [fetchWithAuth, toast]);
 
   const togglePermission = (componentId: string, role: string) => {
     setPermissions(prev => ({
@@ -34,8 +36,18 @@ export default function RoleAccess() {
     }));
   };
 
-  const handleSave = () => {
-    toast({ title: 'Permissions updated' });
+  const handleSave = async () => {
+    const res = await fetchWithAuth('http://localhost:3001/role-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(permissions)
+    });
+    if (res.ok) {
+      toast({ title: 'Permissions updated' });
+    } else {
+      const data = await res.json().catch(() => ({}));
+      toast({ title: data.message || 'Error updating permissions', variant: 'destructive' });
+    }
   };
 
   return (

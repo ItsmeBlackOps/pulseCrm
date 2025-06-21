@@ -147,7 +147,7 @@ export default function LeadDetails() {
           last4ssn: data.last4ssn || data.last4Ssn || ""
           };
           setForm(loaded);
-          setOriginalForm(loaded);
+          setOriginalForm(JSON.parse(JSON.stringify(loaded)));
         });
   }
   }, [id, user, editMode, fetchWithAuth]);
@@ -243,7 +243,7 @@ export default function LeadDetails() {
         if (originalForm) {
           Object.keys(form).forEach(key => {
             const k = key as keyof LeadForm;
-            if (form[k] !== (originalForm as any)[k]) {
+            if (JSON.stringify(form[k]) !== JSON.stringify((originalForm as any)[k])) {
               changes[k] = { old: (originalForm as any)[k], new: form[k] };
             }
           });
