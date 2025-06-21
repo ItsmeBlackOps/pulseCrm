@@ -9,6 +9,16 @@ import { Search, Plus, Filter, Target, TrendingUp, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
+const visaStatusMap: Record<number, string> = {
+  1: 'H1B',
+  2: 'F1',
+  3: 'OPT',
+  4: 'STEM',
+  5: 'Green Card',
+  6: 'USC',
+  7: 'H4'
+};
+
 interface Lead {
   id: number;
   firstname: string;
@@ -19,6 +29,10 @@ interface Lead {
   source?: string;
   status: string;
   assignedto?: string;
+  createdat?: string;
+  updatedat?: string;
+  createdby?: number;
+  visastatusid?: number;
 }
 
 const Leads = () => {
@@ -26,6 +40,8 @@ const Leads = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [userMap, setUserMap] = useState<Record<string, string>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const leadsPerPage = 10;
 
   useEffect(() => {
     fetchWithAuth('http://localhost:3001/assignable-users')
@@ -40,6 +56,10 @@ const Leads = () => {
       .then(res => res.json())
       .then(data => setLeads(data));
   }, [user]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, leads]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -56,6 +76,12 @@ const Leads = () => {
     `${lead.firstname} ${lead.lastname}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
     lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     lead.company.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filteredLeads.length / leadsPerPage);
+  const paginatedLeads = filteredLeads.slice(
+    (currentPage - 1) * leadsPerPage,
+    currentPage * leadsPerPage
   );
 
   const totalLeads = leads.length;
@@ -138,29 +164,47 @@ const Leads = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {filteredLeads.map((lead) => (
-                <Link key={lead.id} to={`/lead-details/${lead.id}`} className="flex items-center space-x-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold">{lead.firstname} {lead.lastname}</h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{lead.email}</p>
-                    {lead.phone && <p className="text-sm text-muted-foreground">{lead.phone}</p>}
-                    <p className="text-sm text-muted-foreground">{lead.company}</p>
-                    <div className="flex items-center space-x-4 mt-2">
-                      <Badge className={getStatusColor(lead.status)}>
-                        {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
-                      </Badge>
-                      {lead.source && (
-                        <span className="text-sm text-muted-foreground">Source: {lead.source}</span>
-                      )}
-                      {lead.assignedto && (
-                        <span className="text-sm text-muted-foreground">Owner: {userMap[lead.assignedto] || lead.assignedto}</span>
-                      )}
+                {paginatedLeads.map((lead) => (
+                  <div key={lead.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold">{lead.firstname} {lead.lastname}</h3>
+                        <Link to={`/lead-details/${lead.id}`} className="text-sm text-primary underline">Edit</Link>
+                      </div>
+                      <div className="flex gap-4 text-sm text-muted-foreground">
+                        <span>{lead.email}</span>
+                        {lead.phone && <span>{lead.phone}</span>}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{lead.company}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
+                        <Badge className={getStatusColor(lead.status)}>
+                          {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
+                        </Badge>
+                        {lead.visastatusid && (
+                          <Badge variant="outline">{visaStatusMap[lead.visastatusid]}</Badge>
+                        )}
+                        {lead.source && (
+                          <span className="text-sm text-muted-foreground">Source: {lead.source}</span>
+                        )}
+                        {lead.assignedto && (
+                          <span className="text-sm text-muted-foreground">Owner: {userMap[lead.assignedto] || lead.assignedto}</span>
+                        )}
+                        {lead.createdby && (
+                          <span className="text-sm text-muted-foreground">Created By: {userMap[String(lead.createdby)] || lead.createdby}</span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground mt-1">
+                        {lead.createdat && <span>Created: {new Date(lead.createdat).toLocaleDateString()}</span>}
+                        {lead.updatedat && <span>Updated: {new Date(lead.updatedat).toLocaleDateString()}</span>}
+                      </div>
                     </div>
                   </div>
-                </Link>
-              ))}
+                ))}
+                <div className="flex justify-between items-center mt-4">
+                  <Button variant="outline" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Prev</Button>
+                  <span className="text-sm">Page {currentPage} of {totalPages}</span>
+                  <Button variant="outline" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
+                </div>
             </div>
           </CardContent>
         </Card>

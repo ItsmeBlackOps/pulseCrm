@@ -93,6 +93,7 @@ export default function LeadDetails() {
   const [error, setError] = useState<string | null>(null);
   const [statuses, setStatuses] = useState<string[]>([]);
   const [assignable, setAssignable] = useState<{ userid: number; name: string }[]>([]);
+  const [originalForm, setOriginalForm] = useState<LeadForm | null>(null);
   const editMode = !!id;
 
   useEffect(() => {
@@ -123,7 +124,7 @@ export default function LeadDetails() {
               return prev;
             });
           }
-          setForm({
+          const loaded = {
             firstname: data.firstname,
             lastname: data.lastname,
             email: data.email,
@@ -143,8 +144,10 @@ export default function LeadDetails() {
           checklist: data.checklist || [],
           legalnamessn: data.legalnamessn || data.legalNameSsn || "",
           last4ssn: data.last4ssn || data.last4Ssn || ""
+          };
+          setForm(loaded);
+          setOriginalForm(loaded);
         });
-    });
   }
   }, [id, user, editMode, fetchWithAuth]);
 
@@ -218,10 +221,33 @@ export default function LeadDetails() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+    const data = await res.json();
     if (res.ok) {
+      if (editMode) {
+        const changes: Record<string, { old: any; new: any }> = {};
+        if (originalForm) {
+          Object.keys(form).forEach(key => {
+            const k = key as keyof LeadForm;
+            if (form[k] !== (originalForm as any)[k]) {
+              changes[k] = { old: (originalForm as any)[k], new: form[k] };
+            }
+          });
+        }
+        if (Object.keys(changes).length) {
+          const histPayload = {
+            leadId: Number(id),
+            state: JSON.stringify(changes),
+            changedAt: new Date().toISOString()
+          };
+          await fetchWithAuth('http://localhost:3001/crmLeadHistory', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(histPayload)
+          });
+        }
+      }
       navigate('/leads');
     } else {
-      const data = await res.json();
       setError(data.message || 'Error saving lead');
     }
   };
