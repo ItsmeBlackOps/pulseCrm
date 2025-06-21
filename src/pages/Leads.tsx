@@ -14,6 +14,7 @@ interface Lead {
   firstname: string;
   lastname: string;
   email: string;
+  phone?: string;
   company: string;
   source?: string;
   status: string;
@@ -21,15 +22,24 @@ interface Lead {
 }
 
 const Leads = () => {
-  const { fetchWithAuth } = useAuth();
+  const { fetchWithAuth, user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [userMap, setUserMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    fetchWithAuth('/assignable-users')
+      .then(res => res.json())
+      .then(data => {
+        const map: Record<string, string> = {};
+        if (user) map[String(user.userid)] = user.name;
+        data.forEach((u: any) => { map[String(u.userid)] = u.name; });
+        setUserMap(map);
+      });
     fetchWithAuth('/crm-leads')
       .then(res => res.json())
       .then(data => setLeads(data));
-  }, []);
+  }, [user]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -135,6 +145,7 @@ const Leads = () => {
                       <h3 className="font-semibold">{lead.firstname} {lead.lastname}</h3>
                     </div>
                     <p className="text-sm text-muted-foreground">{lead.email}</p>
+                    {lead.phone && <p className="text-sm text-muted-foreground">{lead.phone}</p>}
                     <p className="text-sm text-muted-foreground">{lead.company}</p>
                     <div className="flex items-center space-x-4 mt-2">
                       <Badge className={getStatusColor(lead.status)}>
@@ -142,6 +153,9 @@ const Leads = () => {
                       </Badge>
                       {lead.source && (
                         <span className="text-sm text-muted-foreground">Source: {lead.source}</span>
+                      )}
+                      {lead.assignedto && (
+                        <span className="text-sm text-muted-foreground">Owner: {userMap[lead.assignedto] || lead.assignedto}</span>
                       )}
                     </div>
                   </div>

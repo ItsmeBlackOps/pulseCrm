@@ -101,13 +101,25 @@ export default function LeadDetails() {
       .then((data: { title: string }[]) => setStatuses(data.map(c => c.title)));
     fetchWithAuth('/assignable-users')
       .then(res => res.json())
-      .then((data: any[]) => setAssignable(data));
+      .then((data: any[]) => {
+        const list = [...data];
+        if (user) {
+          list.unshift({ userid: user.userid, name: user.name });
+        }
+        setAssignable(list);
+      });
 
     if (editMode) {
       fetchWithAuth(`/crm-leads/${id}`)
         .then(res => res.json())
-        .then(data => setForm({
-          firstname: data.firstname,
+        .then(data => {
+          if (data.assignedto && !assignable.some(u => String(u.userid) === String(data.assignedto))) {
+            const uid = Number(data.assignedto);
+            const newList = [...assignable, { userid: uid, name: `User ${uid}` }];
+            setAssignable(newList);
+          }
+          setForm({
+           firstname: data.firstname,
           lastname: data.lastname,
           email: data.email,
           phone: data.phone || "",
@@ -126,9 +138,9 @@ export default function LeadDetails() {
           checklist: data.checklist || [],
           legalnamessn: data.legalnamessn || data.legalNameSsn || "",
           last4ssn: data.last4ssn || data.last4Ssn || ""
-        }));
+        });
     }
-  }, [id]);
+  }, [id, user]);
 
   const addChecklistItem = () => {
     setForm({ ...form, checklist: [...form.checklist, { label: "", checked: false }] });
