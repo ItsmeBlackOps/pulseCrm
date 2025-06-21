@@ -11,6 +11,7 @@ export default function Profile() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   useEffect(() => {
     refreshUser();
@@ -19,7 +20,7 @@ export default function Profile() {
   const changePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
-    const res = await fetchWithAuth("http://localhost:3001/change-password", {
+    const res = await fetchWithAuth(`${API_BASE_URL}/change-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ currentPassword, newPassword })

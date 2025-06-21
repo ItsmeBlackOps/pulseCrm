@@ -26,6 +26,16 @@ npm i
 npm run dev
 ```
 
+## Environment Variables
+
+Create a `.env` file in the project root with the following variable pointing to your backend API:
+
+```env
+VITE_API_BASE_URL=http://localhost:3001
+```
+
+All API requests use this variable.
+
 ## What technologies are used for this project?
 
 This project is built with:

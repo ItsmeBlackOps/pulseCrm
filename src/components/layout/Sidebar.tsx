@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Link, useLocation } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -17,11 +18,15 @@ interface NavItemProps {
   icon: React.ElementType;
   label: string;
   href: string;
+  componentId: string;
   isCollapsed?: boolean;
   badge?: string;
 }
 
-function NavItem({ icon: Icon, label, href, isCollapsed, badge }: NavItemProps) {
+
+function NavItem({ icon: Icon, label, href, componentId, isCollapsed, badge }: NavItemProps) {
+  const { roleAccess } = useRoleAccess();
+  if (roleAccess && componentId && roleAccess[componentId] === false) return null;
   const location = useLocation();
   const isActive = location.pathname === href || (href === '/' && location.pathname === '/');
 
@@ -127,10 +132,10 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
         <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-2 min-h-0">
           <div className="flex flex-col gap-1">
             <nav className="grid gap-1">
-              <NavItem icon={LayoutDashboard} label="Dashboard" href="/" isCollapsed={isCollapsed} />
-              <NavItem icon={Users} label="Contacts" href="/contacts" isCollapsed={isCollapsed} />
-              <NavItem icon={MessageSquare} label="Messages" href="/messages" isCollapsed={isCollapsed} />
-              <NavItem icon={Calendar} label="Calendar" href="/calendar" isCollapsed={isCollapsed} />
+              <NavItem componentId="dashboard" icon={LayoutDashboard} label="Dashboard" href="/" isCollapsed={isCollapsed} />
+              <NavItem componentId="contacts" icon={Users} label="Contacts" href="/contacts" isCollapsed={isCollapsed} />
+              <NavItem componentId="messages" icon={MessageSquare} label="Messages" href="/messages" isCollapsed={isCollapsed} />
+              <NavItem componentId="calendar" icon={Calendar} label="Calendar" href="/calendar" isCollapsed={isCollapsed} />
             </nav>
 
           
@@ -145,14 +150,14 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
             )}
 
             <nav className="grid gap-1">
-              <NavItem icon={BarChart3} label="Analytics" href="/analytics" isCollapsed={isCollapsed} />
-              <NavItem icon={TrendingUp} label="Deals" href="/deals" isCollapsed={isCollapsed} />
-              <NavItem icon={FileText} label="Deal Details" href="/deal-details" isCollapsed={isCollapsed} />
-              <NavItem icon={Target} label="Leads" href="/leads" isCollapsed={isCollapsed} />
-              <NavItem icon={ClipboardList} label="Lead Details" href="/lead-details" isCollapsed={isCollapsed} />
-              <NavItem icon={BarChart3} label="Reports" href="/reports" isCollapsed={isCollapsed} />
-              <NavItem icon={FileText} label="Report Details" href="/report-details" isCollapsed={isCollapsed} />
-              <NavItem icon={UserPlus} label="Add Contact" href="/add-contact" isCollapsed={isCollapsed} />
+              <NavItem componentId="analytics" icon={BarChart3} label="Analytics" href="/analytics" isCollapsed={isCollapsed} />
+              <NavItem componentId="deals" icon={TrendingUp} label="Deals" href="/deals" isCollapsed={isCollapsed} />
+              <NavItem componentId="deals" icon={FileText} label="Deal Details" href="/deal-details" isCollapsed={isCollapsed} />
+              <NavItem componentId="leads" icon={Target} label="Leads" href="/leads" isCollapsed={isCollapsed} />
+              <NavItem componentId="leads" icon={ClipboardList} label="Lead Details" href="/lead-details" isCollapsed={isCollapsed} />
+              <NavItem componentId="reports" icon={BarChart3} label="Reports" href="/reports" isCollapsed={isCollapsed} />
+              <NavItem componentId="reports" icon={FileText} label="Report Details" href="/report-details" isCollapsed={isCollapsed} />
+              <NavItem componentId="contacts" icon={UserPlus} label="Add Contact" href="/add-contact" isCollapsed={isCollapsed} />
             </nav>
 
             <Separator className="my-4" />
@@ -212,9 +217,9 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
         {/* Fixed Footer */}
         <div className="border-t border-border p-2 flex-shrink-0">
           <nav className="grid gap-1">
-            <NavItem icon={KeyRound} label="Role Access" href="/role-access" isCollapsed={isCollapsed} />
-            <NavItem icon={Settings} label="Settings" href="/settings" isCollapsed={isCollapsed} />
-            <NavItem icon={LifeBuoy} label="Support" href="/support" isCollapsed={isCollapsed} />
+            <NavItem componentId="settings" icon={KeyRound} label="Role Access" href="/role-access" isCollapsed={isCollapsed} />
+            <NavItem componentId="settings" icon={Settings} label="Settings" href="/settings" isCollapsed={isCollapsed} />
+            <NavItem componentId="support" icon={LifeBuoy} label="Support" href="/support" isCollapsed={isCollapsed} />
             <Button
               variant="ghost"
               className={cn('flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all', 'justify-start text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-accent')}
