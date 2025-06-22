@@ -54,8 +54,9 @@ const Leads = () => {
 
   useEffect(() => {
     setLoading(true);
+    const uid = user?.userid ?? '';
     Promise.all([
-      fetchWithAuth(`${API_BASE_URL}/assignable-users`)
+      fetchWithAuth(`${API_BASE_URL}/assignable-users?userId=${uid}`)
         .then(res => res.json())
         .then((data: { userid: number; name: string }[]) => {
           const map: Record<string, string> = {};
@@ -65,7 +66,7 @@ const Leads = () => {
           });
           setUserMap(map);
         }),
-      fetchWithAuth(`${API_BASE_URL}/crm-leads`)
+      fetchWithAuth(`${API_BASE_URL}/crm-leads?userId=${uid}`)
         .then(res => res.json())
         .then((data: Lead[]) => setLeads(data))
     ]).finally(() => setLoading(false));

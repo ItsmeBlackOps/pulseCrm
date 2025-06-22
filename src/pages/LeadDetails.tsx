@@ -107,11 +107,12 @@ export default function LeadDetails() {
     const fetchData = async () => {
       setLoading(true);
       try {
+        const uid = user?.userid ?? '';
         const [columnsData, assignableUsersData] = await Promise.all([
           fetchWithAuth(`${API_BASE_URL}/columns`).then(res =>
             res.json() as Promise<{ title: string }[]>
           ),
-          fetchWithAuth(`${API_BASE_URL}/assignable-users`).then(res =>
+          fetchWithAuth(`${API_BASE_URL}/assignable-users?userId=${uid}`).then(res =>
             res.json() as Promise<{ userid: number; name: string }[]>
           )
         ]);
@@ -126,7 +127,10 @@ export default function LeadDetails() {
         }
 
         if (editMode) {
-          const leadData = await fetchWithAuth(`${API_BASE_URL}/crm-leads/${id}`).then(res => res.json());
+          const uid = user?.userid ?? '';
+          const leadData = await fetchWithAuth(
+            `${API_BASE_URL}/crm-leads/${id}?userId=${uid}`
+          ).then(res => res.json());
 
           if (leadData.assignedto) {
             const uid = Number(leadData.assignedto);
@@ -225,7 +229,10 @@ export default function LeadDetails() {
     }
 
     if (!editMode) {
-      const existing: LeadForm[] = await fetchWithAuth(`${API_BASE_URL}/crm-leads`).then(r => r.json());
+      const uid = user?.userid ?? '';
+      const existing: LeadForm[] = await fetchWithAuth(
+        `${API_BASE_URL}/crm-leads?userId=${uid}`
+      ).then(r => r.json());
       if (existing.some((l) => l.email === form.email || l.phone === form.phone || (form.legalnamessn && l.legalnamessn === form.legalnamessn) || (form.last4ssn && l.last4ssn === form.last4ssn))) {
         toast({ title: 'Duplicate lead found', variant: 'destructive' });
         return;

@@ -51,8 +51,9 @@ export default function UserManagement() {
 
   useEffect(() => {
     setLoading(true);
+    const uid = user?.userid ?? '';
     Promise.all([
-      fetchWithAuth(`${API_BASE_URL}/users`)
+      fetchWithAuth(`${API_BASE_URL}/users?userId=${uid}`)
         .then(res => res.json())
         .then((data: User[]) => {
           setUsers(data);
@@ -62,7 +63,7 @@ export default function UserManagement() {
         .then(res => res.json())
         .then((data: { name: string }[]) => setRoles(data.map(r => r.name)))
     ]).finally(() => setLoading(false));
-  }, [fetchWithAuth, API_BASE_URL]);
+  }, [fetchWithAuth, API_BASE_URL, user]);
 
   const allowedRoles = roles.filter(r => {
     const id = roleIdMap[r.toLowerCase()] ?? Infinity;
