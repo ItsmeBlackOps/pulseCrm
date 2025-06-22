@@ -30,9 +30,10 @@ export default function UserManagement() {
   const { toast } = useToast();
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const [users, setUsers] = useState<User[]>([]);
+  const [managers, setManagers] = useState<User[]>([]);
   const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ name: '', email: '', role: '', password: '' });
+  const [form, setForm] = useState({ name: '', email: '', role: '', managerId: '', password: '' });
   const [pwUser, setPwUser] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState('');
 
@@ -41,7 +42,12 @@ export default function UserManagement() {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      fetchWithAuth(`${API_BASE_URL}/users`).then(res => res.json()).then(setUsers),
+      fetchWithAuth(`${API_BASE_URL}/users`)
+        .then(res => res.json())
+        .then((data: User[]) => {
+          setUsers(data);
+          setManagers(data.filter(u => u.role.toLowerCase() === 'manager'));
+        }),
       fetchWithAuth(`${API_BASE_URL}/roles`).then(res => res.json()).then((data: any[]) => setRoles(data.map(r => r.name)))
     ]).finally(() => setLoading(false));
   }, [fetchWithAuth]);
@@ -62,7 +68,7 @@ export default function UserManagement() {
     if (res.ok) {
       const data = await res.json();
       setUsers(prev => [...prev, data]);
-      setForm({ name: '', email: '', role: '', password: '' });
+      setForm({ name: '', email: '', role: '', managerId: '', password: '' });
       toast({ title: 'User created' });
     } else {
       const data = await res.json().catch(() => ({}));
@@ -118,6 +124,19 @@ export default function UserManagement() {
                       <SelectContent>
                         {allowedRoles.map(r => (
                           <SelectItem key={r} value={r}>{r}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="manager">Manager</Label>
+                    <Select value={form.managerId} onValueChange={value => setForm({ ...form, managerId: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select manager" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {managers.map(m => (
+                          <SelectItem key={m.userid} value={String(m.userid)}>{m.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

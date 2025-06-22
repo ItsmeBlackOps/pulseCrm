@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,9 +14,19 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { User, Bell, Shield, Palette, Globe, Database, Key } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+
+const roleMap: Record<number, string> = {
+  1: 'Super Admin',
+  2: 'Admin',
+  3: 'Manager',
+  4: 'Lead',
+  5: 'Agent'
+};
 
 const Settings = () => {
   const { toast } = useToast();
+  const { user, refreshUser } = useAuth();
   const [profile, setProfile] = useState({
     firstName: 'John',
     lastName: 'Doe',
@@ -43,6 +53,23 @@ const Settings = () => {
     dateFormat: 'MM/DD/YYYY',
     currency: 'USD'
   });
+
+  useEffect(() => {
+    refreshUser();
+  }, [refreshUser]);
+
+  useEffect(() => {
+    if (user) {
+      const [first = '', ...rest] = user.name.split(' ');
+      setProfile(prev => ({
+        ...prev,
+        firstName: first,
+        lastName: rest.join(' '),
+        email: user.email,
+        position: roleMap[user.roleid] || prev.position
+      }));
+    }
+  }, [user]);
 
   const handleSaveProfile = () => {
     toast({

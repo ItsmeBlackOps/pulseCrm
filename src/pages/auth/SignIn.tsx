@@ -7,11 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { LoadingOverlay } from '@/components/ui/loading-overlay';
 
 export default function SignIn() {
   const { login, user } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -20,9 +22,12 @@ export default function SignIn() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      setLoading(true);
       await login(formData.email, formData.password);
     } catch (err) {
       setError('Invalid email or password');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -36,7 +41,8 @@ export default function SignIn() {
   if (user) return <Navigate to="/" />;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 relative">
+      {loading && <LoadingOverlay />}
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
@@ -100,8 +106,8 @@ export default function SignIn() {
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 
-            <Button type="submit" className="w-full">
-              Sign In
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Signing In...' : 'Sign In'}
             </Button>
 
           </form>
