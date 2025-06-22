@@ -25,12 +25,20 @@ const roleMap: Record<number, string> = {
   5: 'agent'
 };
 
+const roleIdMap: Record<string, number> = {
+  superadmin: 1,
+  admin: 2,
+  manager: 3,
+  lead: 4,
+  agent: 5
+};
+
 export default function UserManagement() {
   const { user, fetchWithAuth } = useAuth();
   const { toast } = useToast();
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const [users, setUsers] = useState<User[]>([]);
-  const [managers, setManagers] = useState<User[]>([]);
+  const [userOptions, setUserOptions] = useState<User[]>([]);
   const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ name: '', email: '', role: '', managerId: '', password: '' });
@@ -38,6 +46,8 @@ export default function UserManagement() {
   const [newPassword, setNewPassword] = useState('');
 
   const currentRole = roleMap[user?.roleid ?? 0];
+  const currentRoleId = user?.roleid ?? 0;
+  const canCreateUser = currentRoleId < roleIdMap.agent;
 
   useEffect(() => {
     setLoading(true);
@@ -46,16 +56,17 @@ export default function UserManagement() {
         .then(res => res.json())
         .then((data: User[]) => {
           setUsers(data);
-          setManagers(data.filter(u => u.role.toLowerCase() === 'manager'));
+          setUserOptions(data);
         }),
-      fetchWithAuth(`${API_BASE_URL}/roles`).then(res => res.json()).then((data: any[]) => setRoles(data.map(r => r.name)))
+      fetchWithAuth(`${API_BASE_URL}/roles`)
+        .then(res => res.json())
+        .then((data: { name: string }[]) => setRoles(data.map(r => r.name)))
     ]).finally(() => setLoading(false));
   }, [fetchWithAuth]);
 
   const allowedRoles = roles.filter(r => {
-    if (currentRole === 'manager') return ['Lead', 'Agent'].includes(r);
-    if (currentRole === 'lead') return r === 'Agent';
-    return true;
+    const id = roleIdMap[r.toLowerCase()] ?? Infinity;
+    return id > currentRoleId;
   });
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -101,6 +112,7 @@ export default function UserManagement() {
         {!loading && (
           <div className="space-y-6">
             <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
+            {canCreateUser && (
             <Card>
               <CardHeader>
                 <CardTitle>Create User</CardTitle>
@@ -135,7 +147,7 @@ export default function UserManagement() {
                         <SelectValue placeholder="Select manager" />
                       </SelectTrigger>
                       <SelectContent>
-                        {managers.map(m => (
+                        {userOptions.map(m => (
                           <SelectItem key={m.userid} value={String(m.userid)}>{m.name}</SelectItem>
                         ))}
                       </SelectContent>
@@ -149,6 +161,7 @@ export default function UserManagement() {
                 </form>
               </CardContent>
             </Card>
+            )}
 
             <Card>
               <CardHeader>
