@@ -13,7 +13,7 @@ Ensure new features include unit tests once testing is configured.
 ## Architectural Guidelines
 
 - Adopt a modular, layered architecture (e.g. React components, business logic, data access).
-- Use Domain-Driven Design (DDD) concepts to model sales leads and RBAC entities.
+- Use Domain-Driven Design (DDD) concepts to model sales leads (e.g., Lead, Contact) and RBAC entities (e.g., Role, Permission).
 - Define clear service boundaries (microservices or well-scoped modules).
 - Apply the Single Responsibility Principle to each component.
 - Define roles, permissions, and scopes upfront aligned to your sales-lead workflows.
