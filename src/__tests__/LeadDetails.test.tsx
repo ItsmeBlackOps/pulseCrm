@@ -59,7 +59,10 @@ function setup(fetchMock: (url: RequestInfo, init?: RequestInit) => Promise<Resp
     <AuthProvider>
       <RoleAccessProvider>
         <NotificationProvider>
-          <MemoryRouter initialEntries={['/lead-details']}>
+          <MemoryRouter
+            initialEntries={['/lead-details']}
+            future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+          >
             <Routes>
               <Route path="/lead-details" element={<LeadDetails />} />
               <Route path="/leads" element={<div>Leads Page</div>} />

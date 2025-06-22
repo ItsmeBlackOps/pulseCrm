@@ -45,7 +45,10 @@ test('successful login stores user info and redirects', async () => {
 
   render(
     <AuthProvider>
-      <MemoryRouter initialEntries={["/auth/signin"]}>
+      <MemoryRouter
+        initialEntries={["/auth/signin"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
         <Routes>
           <Route path="/auth/signin" element={<SignIn />} />
           <Route path="/" element={<div>Home</div>} />
@@ -79,7 +82,10 @@ test('invalid credentials display error message', async () => {
 
   render(
     <AuthProvider>
-      <MemoryRouter initialEntries={["/auth/signin"]}>
+      <MemoryRouter
+        initialEntries={["/auth/signin"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
         <Routes>
           <Route path="/auth/signin" element={<SignIn />} />
           <Route path="/" element={<div>Home</div>} />
