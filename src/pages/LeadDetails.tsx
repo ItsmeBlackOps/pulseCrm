@@ -225,8 +225,8 @@ export default function LeadDetails() {
     }
 
     if (!editMode) {
-      const existing = await fetchWithAuth(`${API_BASE_URL}/crm-leads`).then(r => r.json());
-      if (existing.some((l: any) => l.email === form.email || l.phone === form.phone || (form.legalnamessn && l.legalnamessn === form.legalnamessn) || (form.last4ssn && l.last4ssn === form.last4ssn))) {
+      const existing: LeadForm[] = await fetchWithAuth(`${API_BASE_URL}/crm-leads`).then(r => r.json());
+      if (existing.some((l) => l.email === form.email || l.phone === form.phone || (form.legalnamessn && l.legalnamessn === form.legalnamessn) || (form.last4ssn && l.last4ssn === form.last4ssn))) {
         toast({ title: 'Duplicate lead found', variant: 'destructive' });
         return;
       }
@@ -257,13 +257,14 @@ export default function LeadDetails() {
     });
     const data = await res.json();
     if (res.ok) {
+      let notificationMsg = '';
       if (editMode) {
-        const changes: Record<string, { old: any; new: any }> = {};
+        const changes: Record<string, { old: unknown; new: unknown }> = {};
         if (originalForm) {
           Object.keys(form).forEach(key => {
             const k = key as keyof LeadForm;
-            if (JSON.stringify(form[k]) !== JSON.stringify((originalForm as any)[k])) {
-              changes[k] = { old: (originalForm as any)[k], new: form[k] };
+            if (JSON.stringify(form[k]) !== JSON.stringify((originalForm as Record<string, unknown>)[k])) {
+              changes[k] = { old: (originalForm as Record<string, unknown>)[k], new: form[k] };
             }
           });
         }
@@ -278,11 +279,21 @@ export default function LeadDetails() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(histPayload)
           });
+
+          if (changes.status) {
+            notificationMsg = `${user?.name || 'User'} changed status of ${form.firstname} ${form.lastname} for ${form.company} from ${changes.status.old} to ${changes.status.new}`;
+          } else {
+            const fields = Object.keys(changes).join(', ');
+            notificationMsg = `${user?.name || 'User'} updated ${form.firstname} ${form.lastname} for ${form.company} (${fields})`;
+          }
         }
+      } else {
+        notificationMsg = `${user?.name || 'User'} created lead ${form.firstname} ${form.lastname} for ${form.company} with status ${form.status}`;
       }
+
       const msg = editMode ? 'Lead updated' : 'Lead created';
       toast({ title: msg });
-      addNotification(msg);
+      if (notificationMsg) addNotification(notificationMsg);
       navigate('/leads');
     } else {
       toast({ title: data.message || 'Error saving lead', variant: 'destructive' });
