@@ -213,7 +213,12 @@ const Leads = () => {
                         >
                           Edit
                         </Link>
-                        <Button variant="ghost" size="icon" onClick={() => deleteLead(lead)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="delete"
+                          onClick={() => deleteLead(lead)}
+                        >
                           <Trash2 className="h-4 w-4 text-red-600" />
                         </Button>
                       </div>
