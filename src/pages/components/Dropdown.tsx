@@ -37,12 +37,21 @@ import {
   Github
 } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function ComponentDropdown() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
   const [position, setPosition] = useState("bottom");
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [showActivityBar, setShowActivityBar] = useState(false);
   const [showPanel, setShowPanel] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/auth/signin');
+  };
 
   return (
     <DashboardLayout>
@@ -147,7 +156,7 @@ export default function ComponentDropdown() {
                       <DropdownMenuShortcut>⌘K</DropdownMenuShortcut>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogout}>
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>Log out</span>
                       <DropdownMenuShortcut>⇧⌘Q</DropdownMenuShortcut>
