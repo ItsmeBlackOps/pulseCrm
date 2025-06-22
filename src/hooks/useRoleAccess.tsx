@@ -14,12 +14,29 @@ export function RoleAccessProvider({ children }: { children: React.ReactNode }) 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   const loadAccess = async () => {
-    if (!user) return;
+    if (!user) {
+      setRoleAccess({});
+      return;
+    }
     try {
       const res = await fetchWithAuth(`${API_BASE_URL}/role-access`);
       if (res.ok) {
         const data = await res.json();
-        setRoleAccess(data);
+        const roleMap: Record<number, string> = {
+          1: 'superadmin',
+          2: 'admin',
+          3: 'manager',
+          4: 'lead',
+          5: 'agent'
+        };
+        const roleName = roleMap[user.roleid];
+        const access: Record<string, boolean> = {};
+        for (const [componentId, roles] of Object.entries(data)) {
+          if (typeof roles === 'object' && roleName in (roles as Record<string, boolean>)) {
+            access[componentId] = (roles as Record<string, boolean>)[roleName];
+          }
+        }
+        setRoleAccess(access);
       }
     } catch {
       // Failed to load role access
