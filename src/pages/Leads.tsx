@@ -56,7 +56,7 @@ const Leads = () => {
     setLoading(true);
     const uid = user?.userid ?? '';
     Promise.all([
-      fetchWithAuth(`${API_BASE_URL}/assignable-users`)
+      fetchWithAuth(`${API_BASE_URL}/assignable-users?userId=${uid}`)
         .then(res => res.json())
         .then((data: { userid: number; name: string }[]) => {
           const map: Record<string, string> = {};

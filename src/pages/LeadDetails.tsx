@@ -107,11 +107,12 @@ export default function LeadDetails() {
     const fetchData = async () => {
       setLoading(true);
       try {
+        const uid = user?.userid ?? '';
         const [columnsData, assignableUsersData] = await Promise.all([
           fetchWithAuth(`${API_BASE_URL}/columns`).then(res =>
             res.json() as Promise<{ title: string }[]>
           ),
-          fetchWithAuth(`${API_BASE_URL}/assignable-users`).then(res =>
+          fetchWithAuth(`${API_BASE_URL}/assignable-users?userId=${uid}`).then(res =>
             res.json() as Promise<{ userid: number; name: string }[]>
           )
         ]);
