@@ -5,6 +5,7 @@ interface User {
   name: string;
   email: string;
   roleid: number;
+  status?: string;
 }
 
 interface AuthContextType {
@@ -38,15 +39,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   const login = async (email: string, password: string) => {
+    const lower = email.toLowerCase();
     const res = await fetch(`${API_BASE_URL}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email: lower, password })
     });
     if (!res.ok) {
       throw new Error("Invalid credentials");
     }
     const data = await res.json();
+    if (data.user?.status && data.user.status.toLowerCase() !== "active") {
+      throw new Error("Account is disabled");
+    }
     setUser(data.user);
     setToken(data.token);
     setRefreshTokenValue(data.refreshToken);
