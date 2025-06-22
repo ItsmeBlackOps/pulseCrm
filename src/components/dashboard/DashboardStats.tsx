@@ -1,6 +1,9 @@
+import { useEffect, useState } from 'react';
 import { ArrowUp, ArrowDown, Users, TrendingUp, UserPlus, DollarSign, Ticket } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { differenceInDays } from 'date-fns';
 
 interface StatsCardProps {
   title: string;
@@ -37,6 +40,23 @@ export function StatsCard({ title, value, change, changeLabel, icon, formatter }
 }
 
 export function DashboardStats() {
+  const { fetchWithAuth } = useAuth();
+  const [stats, setStats] = useState({ total: 0, newLeads: 0 });
+
+  useEffect(() => {
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+    fetchWithAuth(`${API_BASE_URL}/crm-leads`)
+      .then(res => res.json())
+      .then((data: any[]) => {
+        const total = data.length;
+        const newLeads = data.filter(l => l.createdat && differenceInDays(new Date(), new Date(l.createdat)) <= 7).length;
+        setStats({ total, newLeads });
+      })
+      .catch(() => {
+        setStats({ total: 0, newLeads: 0 });
+      });
+  }, [fetchWithAuth]);
+
   const formatCurrency = (value: number | string) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -47,8 +67,8 @@ export function DashboardStats() {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      <StatsCard title="Total Leads" value={2154} change={12} changeLabel="since last month" icon={<Users className="h-5 w-5" />} />
-      <StatsCard title="New Leads" value={247} change={-3} changeLabel="since last month" icon={<UserPlus className="h-5 w-5" />} />
+      <StatsCard title="Total Leads" value={stats.total} change={0} changeLabel="" icon={<Users className="h-5 w-5" />} />
+      <StatsCard title="New Leads" value={stats.newLeads} change={0} changeLabel="" icon={<UserPlus className="h-5 w-5" />} />
       <StatsCard title="Revenue" value={54200} change={8} changeLabel="since last month" icon={<DollarSign className="h-5 w-5" />} formatter={formatCurrency} />
       <StatsCard title="Open Tickets" value={32} change={-15} changeLabel="since last week" icon={<Ticket className="h-5 w-5" />} />
     </div>

@@ -6,9 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Filter, Target, TrendingUp, Users } from 'lucide-react';
+import { Search, Plus, Filter, Target, TrendingUp, Users, Trash2 } from 'lucide-react';
+import { differenceInDays } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { useNotifications } from '@/hooks/useNotifications';
 
 const visaStatusMap: Record<number, string> = {
   1: 'H1B',
@@ -38,6 +41,8 @@ interface Lead {
 
 const Leads = () => {
   const { fetchWithAuth, user } = useAuth();
+  const { toast } = useToast();
+  const { addNotification } = useNotifications();
   const [searchTerm, setSearchTerm] = useState('');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [userMap, setUserMap] = useState<Record<string, string>>({});
@@ -95,6 +100,22 @@ const Leads = () => {
 
   const totalLeads = leads.length;
   const qualifiedLeads = leads.filter(lead => lead.status === 'qualified').length;
+  const newLeads = leads.filter(l => l.createdat && differenceInDays(new Date(), new Date(l.createdat)) <= 7).length;
+  const converted = leads.filter(l => l.status === 'converted').length;
+  const conversionRate = totalLeads ? Math.round((converted / totalLeads) * 100) : 0;
+
+  const deleteLead = async (lead: Lead) => {
+    if (!confirm('Delete this lead?')) return;
+    const res = await fetchWithAuth(`${API_BASE_URL}/crm-leads/${lead.id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setLeads(prev => prev.filter(l => l.id !== lead.id));
+      toast({ title: 'Lead deleted' });
+      addNotification(`${user?.name || 'User'} deleted lead ${lead.firstname} ${lead.lastname} for ${lead.company}`);
+    } else {
+      const data = await res.json();
+      toast({ title: data.message || 'Error deleting lead', variant: 'destructive' });
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -124,7 +145,7 @@ const Leads = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalLeads}</div>
-              <p className="text-xs text-muted-foreground">+8 new this week</p>
+              <p className="text-xs text-muted-foreground">+{newLeads} new this week</p>
             </CardContent>
           </Card>
           <Card>
@@ -134,7 +155,7 @@ const Leads = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{qualifiedLeads}</div>
-              <p className="text-xs text-muted-foreground">+2 from last week</p>
+              <p className="text-xs text-muted-foreground">Qualified leads</p>
             </CardContent>
           </Card>
           <Card>
@@ -143,8 +164,8 @@ const Leads = () => {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">24%</div>
-              <p className="text-xs text-muted-foreground">+2% from last month</p>
+              <div className="text-2xl font-bold">{conversionRate}%</div>
+              <p className="text-xs text-muted-foreground">Conversion rate</p>
             </CardContent>
           </Card>
         </div>
@@ -192,6 +213,9 @@ const Leads = () => {
                         >
                           Edit
                         </Link>
+                        <Button variant="ghost" size="icon" onClick={() => deleteLead(lead)}>
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
                       </div>
                       <div className="flex gap-4 text-sm text-muted-foreground">
                         <span>{lead.email}</span>
