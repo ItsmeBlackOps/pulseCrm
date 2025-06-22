@@ -25,7 +25,8 @@ export default function SignIn() {
       setLoading(true);
       await login(formData.email, formData.password);
     } catch (err) {
-      setError('Invalid email or password');
+      if (err instanceof Error) setError(err.message);
+      else setError('Invalid email or password');
     } finally {
       setLoading(false);
     }
@@ -34,7 +35,7 @@ export default function SignIn() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.name === 'email' ? e.target.value.toLowerCase() : e.target.value
     });
   };
 

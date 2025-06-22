@@ -62,7 +62,7 @@ export default function UserManagement() {
         .then(res => res.json())
         .then((data: { name: string }[]) => setRoles(data.map(r => r.name)))
     ]).finally(() => setLoading(false));
-  }, [fetchWithAuth]);
+  }, [fetchWithAuth, API_BASE_URL]);
 
   const allowedRoles = roles.filter(r => {
     const id = roleIdMap[r.toLowerCase()] ?? Infinity;

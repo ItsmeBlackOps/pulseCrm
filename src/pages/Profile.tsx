@@ -15,7 +15,7 @@ export default function Profile() {
 
   useEffect(() => {
     refreshUser();
-  }, []);
+  }, [refreshUser]);
 
   const changePassword = async (e: React.FormEvent) => {
     e.preventDefault();

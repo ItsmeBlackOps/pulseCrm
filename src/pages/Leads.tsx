@@ -69,7 +69,7 @@ const Leads = () => {
         .then(res => res.json())
         .then((data: Lead[]) => setLeads(data))
     ]).finally(() => setLoading(false));
-  }, [user]);
+  }, [user, fetchWithAuth, API_BASE_URL]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -213,7 +213,12 @@ const Leads = () => {
                         >
                           Edit
                         </Link>
-                        <Button variant="ghost" size="icon" onClick={() => deleteLead(lead)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="delete"
+                          onClick={() => deleteLead(lead)}
+                        >
                           <Trash2 className="h-4 w-4 text-red-600" />
                         </Button>
                       </div>

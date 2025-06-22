@@ -37,7 +37,7 @@ export default function RoleAccess() {
         .then(data => setPermissions(data))
         .catch(() => toast({ title: 'Failed to load permissions', variant: 'destructive' }))
     ]).finally(() => setLoading(false));
-  }, [fetchWithAuth, toast]);
+  }, [fetchWithAuth, toast, API_BASE_URL]);
 
   const togglePermission = (componentId: string, role: string) => {
     setPermissions(prev => ({
