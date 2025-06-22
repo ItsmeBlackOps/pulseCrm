@@ -27,8 +27,8 @@ interface NavItemProps {
 
 function NavItem({ icon: Icon, label, href, componentId, isCollapsed, badge }: NavItemProps) {
   const { roleAccess } = useRoleAccess();
-  if (roleAccess && componentId && roleAccess[componentId] === false) return null;
   const location = useLocation();
+  if (roleAccess && componentId && roleAccess[componentId] === false) return null;
   const isActive = location.pathname === href || (href === '/' && location.pathname === '/');
 
   return (
