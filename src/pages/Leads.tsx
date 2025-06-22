@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from 'react';
+import { LoadingOverlay } from '@/components/ui/loading-overlay';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -41,22 +42,28 @@ const Leads = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [userMap, setUserMap] = useState<Record<string, string>>({});
   const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
   const leadsPerPage = 10;
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   useEffect(() => {
-    fetchWithAuth(`${API_BASE_URL}/assignable-users`)
-      .then(res => res.json())
-      .then(data => {
-        const map: Record<string, string> = {};
-        if (user) map[String(user.userid)] = user.name;
-        data.forEach((u: any) => { map[String(u.userid)] = u.name; });
-        setUserMap(map);
-      });
-    fetchWithAuth(`${API_BASE_URL}/crm-leads`)
-      .then(res => res.json())
-      .then(data => setLeads(data));
+    setLoading(true);
+    Promise.all([
+      fetchWithAuth(`${API_BASE_URL}/assignable-users`)
+        .then(res => res.json())
+        .then((data: { userid: number; name: string }[]) => {
+          const map: Record<string, string> = {};
+          if (user) map[String(user.userid)] = user.name;
+          data.forEach((u: { userid: number; name: string }) => {
+            map[String(u.userid)] = u.name;
+          });
+          setUserMap(map);
+        }),
+      fetchWithAuth(`${API_BASE_URL}/crm-leads`)
+        .then(res => res.json())
+        .then((data: Lead[]) => setLeads(data))
+    ]).finally(() => setLoading(false));
   }, [user]);
 
   useEffect(() => {
@@ -91,7 +98,10 @@ const Leads = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="relative min-h-[200px]">
+        {loading && <LoadingOverlay />}
+        {!loading && (
+          <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Leads</h1>
@@ -220,6 +230,8 @@ const Leads = () => {
             </div>
           </CardContent>
         </Card>
+      </div>
+        )}
       </div>
     </DashboardLayout>
   );

@@ -25,7 +25,6 @@ export default function ResetPassword() {
       return;
     }
     // Handle reset password logic here
-    console.log('Reset password attempt:', { token, password: formData.password });
     setIsReset(true);
   };
 

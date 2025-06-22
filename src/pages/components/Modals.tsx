@@ -107,7 +107,6 @@ export default function ComponentModals() {
   });
 
   const handleFormSubmit = () => {
-    console.log('Form submitted:', formData);
     setIsFormOpen(false);
     setFormData({ name: '', email: '', message: '' });
   };

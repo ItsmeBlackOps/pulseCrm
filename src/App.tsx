@@ -2,7 +2,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Index from './pages/Index';
 import NotFound from './pages/NotFound';
 import Messages from './pages/Messages';
@@ -20,12 +20,14 @@ import ReportDetails from './pages/ReportDetails';
 import AddContact from './pages/AddContact';
 import Profile from './pages/Profile';
 import RoleAccess from './pages/RoleAccess';
+import UserManagement from './pages/UserManagement';
 
 // Authentication pages
 import SignIn from './pages/auth/SignIn';
 
-import { AuthProvider } from './hooks/useAuth';
+import { AuthProvider, useAuth } from './hooks/useAuth';
 import { RoleAccessProvider } from './hooks/useRoleAccess';
+import { NotificationProvider } from './hooks/useNotifications';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Component pages
@@ -57,6 +59,14 @@ import ComponentTooltips from './pages/components/Tooltips';
 import ComponentTypedText from './pages/components/TypedText';
 import ComponentChatWidget from './pages/components/ChatWidget';
 
+function SuperAdminOnly({ children }: { children: JSX.Element }) {
+  const { user } = useAuth();
+  if (user?.roleid !== 1) {
+    return <Navigate to="/" replace />;
+  }
+  return children;
+}
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -66,7 +76,8 @@ const App = () => (
       <Sonner />
       <AuthProvider>
         <RoleAccessProvider>
-          <BrowserRouter>
+          <NotificationProvider>
+            <BrowserRouter>
             <Routes>
               <Route path="/auth/signin" element={<SignIn />} />
               <Route
@@ -103,7 +114,16 @@ const App = () => (
               />
               <Route path="/calendar" element={<ProtectedRoute componentId="calendar"><Calendar /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute componentId="settings"><Settings /></ProtectedRoute>} />
-              <Route path="/support" element={<ProtectedRoute componentId="support"><Support /></ProtectedRoute>} />
+              <Route
+                path="/support"
+                element={
+                  <ProtectedRoute componentId="support">
+                    <SuperAdminOnly>
+                      <Support />
+                    </SuperAdminOnly>
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/deals" element={<ProtectedRoute componentId="deals"><Deals /></ProtectedRoute>} />
               <Route path="/deal-details" element={<ProtectedRoute componentId="deals"><DealDetails /></ProtectedRoute>} />
               <Route path="/leads" element={<ProtectedRoute componentId="leads"><Leads /></ProtectedRoute>} />
@@ -113,6 +133,7 @@ const App = () => (
               <Route path="/add-contact" element={<ProtectedRoute componentId="contacts"><AddContact /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/role-access" element={<ProtectedRoute componentId="settings"><RoleAccess /></ProtectedRoute>} />
+              <Route path="/user-management" element={<ProtectedRoute componentId="settings"><UserManagement /></ProtectedRoute>} />
 
               {/* Authentication routes */}
               <Route path="/auth/signin" element={<SignIn />} />
@@ -149,6 +170,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
+          </NotificationProvider>
         </RoleAccessProvider>
       </AuthProvider>
     </TooltipProvider>

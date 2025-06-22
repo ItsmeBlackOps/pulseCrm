@@ -40,7 +40,7 @@ export default function ComponentToast() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => console.log("Undo clicked")}
+          onClick={() => {}}
         >
           Undo
         </Button>
