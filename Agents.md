@@ -12,7 +12,7 @@ Ensure new features include unit tests once testing is configured.
 
 ## Architectural Guidelines
 
-- Adopt a modular, layered architecture (e.g. presentation, business logic, data access).
+- Adopt a modular, layered architecture (e.g. React components, business logic, data access).
 - Use Domain-Driven Design (DDD) concepts to model sales leads and RBAC entities.
 - Define clear service boundaries (microservices or well-scoped modules).
 - Apply the Single Responsibility Principle to each component.
