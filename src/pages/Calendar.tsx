@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -46,7 +46,7 @@ const Calendar = () => {
   useEffect(() => {
     const savedEvents = localStorage.getItem('calendar-events');
     if (savedEvents) {
-      const parsedEvents = JSON.parse(savedEvents).map((event: any) => ({
+      const parsedEvents = (JSON.parse(savedEvents) as Array<Omit<Event, 'date'> & { date: string }>).map(event => ({
         ...event,
         date: new Date(event.date)
       }));
@@ -151,7 +151,7 @@ const Calendar = () => {
     }
   };
 
-  const getEventTypeBadge = (type: string) => {
+  const getEventTypeBadge = (type: Event['type']): BadgeProps['variant'] => {
     switch (type) {
       case 'meeting': return 'default';
       case 'call': return 'secondary';
@@ -438,7 +438,7 @@ const Calendar = () => {
                         <Users className="h-3 w-3 mr-1" />
                         {event.attendees.join(', ') || 'No attendees'}
                       </div>
-                      <Badge variant={getEventTypeBadge(event.type) as any}>
+                      <Badge variant={getEventTypeBadge(event.type)}>
                         {event.type}
                       </Badge>
                     </div>
@@ -481,7 +481,7 @@ const Calendar = () => {
                     <div className="text-xs text-muted-foreground">
                       {event.attendees.join(', ') || 'No attendees'}
                     </div>
-                    <Badge variant={getEventTypeBadge(event.type) as any}>
+                    <Badge variant={getEventTypeBadge(event.type)}>
                       {event.type}
                     </Badge>
                   </div>

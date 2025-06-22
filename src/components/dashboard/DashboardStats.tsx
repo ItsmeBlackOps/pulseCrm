@@ -47,7 +47,7 @@ export function DashboardStats() {
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
     fetchWithAuth(`${API_BASE_URL}/crm-leads`)
       .then(res => res.json())
-      .then((data: any[]) => {
+      .then((data: { createdat?: string }[]) => {
         const total = data.length;
         const newLeads = data.filter(l => l.createdat && differenceInDays(new Date(), new Date(l.createdat)) <= 7).length;
         setStats({ total, newLeads });
