@@ -69,7 +69,7 @@ const Leads = () => {
         .then(res => res.json())
         .then((data: Lead[]) => setLeads(data))
     ]).finally(() => setLoading(false));
-  }, [user]);
+  }, [user, fetchWithAuth, API_BASE_URL]);
 
   useEffect(() => {
     setCurrentPage(1);
