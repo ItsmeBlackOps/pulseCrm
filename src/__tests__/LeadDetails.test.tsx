@@ -135,17 +135,18 @@ test.fails('detects duplicate lead', async () => {
   expect(queryByText('Leads Page')).toBeNull();
 });
 
-test.fails('successful creation redirects to leads', async () => {
+test('successful creation redirects to leads', async () => {
   const fetchMock = (url: RequestInfo, init?: RequestInit) => {
     const u = String(url);
     if (u.includes('/crm-leads') && (!init || init.method === 'GET')) {
       return okJson([]);
     }
-    if (u.includes('/crm-leads') && init && init.method === 'POST') {
+    if (u.includes('/crm-leads') && init?.method === 'POST') {
       return okJson({});
     }
     return baseFetch(url, init);
   };
+
   setup(fetchMock);
   await screen.findByRole('button', { name: /save/i });
   await userEvent.type(screen.getByLabelText(/first name/i), 'Jane');
