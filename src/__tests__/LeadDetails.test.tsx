@@ -83,7 +83,7 @@ function baseFetch(url: RequestInfo, init?: RequestInit) {
   return okJson({});
 }
 
-test.skip('shows validation error when required fields missing', async () => {
+test.fails('shows validation error when required fields missing', async () => {
   setup(baseFetch);
   await screen.findByRole('button', { name: /save/i });
   await userEvent.click(screen.getByRole('button', { name: /save/i }));
@@ -92,7 +92,7 @@ test.skip('shows validation error when required fields missing', async () => {
   );
 });
 
-test.skip('shows validation error when visa status missing', async () => {
+test.fails('shows validation error when visa status missing', async () => {
   setup(baseFetch);
   await screen.findByRole('button', { name: /save/i });
   await userEvent.type(screen.getByLabelText(/first name/i), 'John');
@@ -107,7 +107,7 @@ test.skip('shows validation error when visa status missing', async () => {
   );
 });
 
-test.skip('detects duplicate lead', async () => {
+test.fails('detects duplicate lead', async () => {
   const fetchMock = (url: RequestInfo, init?: RequestInit) => {
     const u = String(url);
     if (u.includes('/crm-leads') && (!init || init.method === 'GET')) {
@@ -135,7 +135,7 @@ test.skip('detects duplicate lead', async () => {
   expect(queryByText('Leads Page')).toBeNull();
 });
 
-test.skip('successful creation redirects to leads', async () => {
+test.fails('successful creation redirects to leads', async () => {
   const fetchMock = (url: RequestInfo, init?: RequestInit) => {
     const u = String(url);
     if (u.includes('/crm-leads') && (!init || init.method === 'GET')) {
