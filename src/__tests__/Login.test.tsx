@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { afterAll, beforeAll, beforeEach, afterEach, expect, test, vi } from 'vitest';
+import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import SignIn from '../pages/auth/SignIn';
@@ -25,18 +25,29 @@ beforeEach(() => {
   localStorage.clear();
 });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+  cleanup();
+});
+
 afterAll(() => {
   vi.unstubAllGlobals();
 });
 
 test('successful login stores user info and redirects', async () => {
-  const user = { userid: 1, name: 'Test', email: 'test@example.com', roleid: 2 };
-  const fetchMock = vi.fn().mockImplementation((url: RequestInfo) => {
+  const user = {
+    userid: 1,
+    name: 'Test',
+    email: 'test@example.com',
+    roleid: 2,
+    status: 'Active',
+  };
+  const fetchMock = vi.fn().mockImplementation((url: RequestInfo, init?: RequestInit) => {
     if (String(url).includes('/login')) {
+      expect(init?.body).toContain('"email":"test@example.com"');
       return Promise.resolve({
         ok: true,
-        json: () =>
-          Promise.resolve({ user, token: 'abc', refreshToken: 'def' }),
+        json: () => Promise.resolve({ user, token: 'abc', refreshToken: 'def' }),
       });
     }
     return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
@@ -57,7 +68,7 @@ test('successful login stores user info and redirects', async () => {
     </AuthProvider>,
   );
 
-  await userEvent.type(screen.getByLabelText(/email/i), 'test@example.com');
+  await userEvent.type(screen.getByLabelText(/email/i), 'TEST@EXAMPLE.COM');
   await userEvent.type(screen.getByLabelText(/password/i), 'password');
   await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
@@ -98,5 +109,46 @@ test('invalid credentials display error message', async () => {
   await userEvent.type(screen.getByLabelText(/password/i), 'wrong');
   await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
-  expect(await screen.findByText(/Invalid email or password/i)).toBeDefined();
+  expect(await screen.findByText(/Invalid credentials/i)).toBeDefined();
+});
+
+test('disabled account shows message', async () => {
+  const user = {
+    userid: 2,
+    name: 'Bob',
+    email: 'bob@example.com',
+    roleid: 1,
+    status: 'Non Active',
+  };
+  const fetchMock = vi.fn().mockImplementation((url: RequestInfo) => {
+    if (String(url).includes('/login')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ user, token: 'abc', refreshToken: 'def' }),
+      });
+    }
+    return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+  });
+  vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch);
+
+  render(
+    <AuthProvider>
+      <MemoryRouter
+        initialEntries={["/auth/signin"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/auth/signin" element={<SignIn />} />
+          <Route path="/" element={<div>Home</div>} />
+        </Routes>
+      </MemoryRouter>
+    </AuthProvider>,
+  );
+
+  await userEvent.type(screen.getByLabelText(/email/i), 'bob@example.com');
+  await userEvent.type(screen.getByLabelText(/password/i), 'pass');
+  await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+  expect(await screen.findByText(/account is disabled/i)).toBeDefined();
+  expect(localStorage.getItem('auth')).toBeNull();
 });

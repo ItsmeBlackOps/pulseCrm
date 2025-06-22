@@ -38,12 +38,12 @@ afterEach(() => {
 });
 
 describe('\u2705 Positive Login Scenarios', () => {
-  it('logs in with valid Admin credentials', async () => {
+  it('logs in with valid Admin credentials and lowercases email', async () => {
     mockLogin.mockResolvedValue({ role: 'admin' });
     render(<SignIn />);
 
     fireEvent.change(screen.getByPlaceholderText(/email/i), {
-      target: { value: 'admin@example.com' },
+      target: { value: 'ADMIN@EXAMPLE.COM' },
     });
     fireEvent.change(screen.getByPlaceholderText(/password/i), {
       target: { value: 'adminpass' },
@@ -80,7 +80,7 @@ describe('\u274c Negative Login Scenarios', () => {
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() =>
-      expect(screen.getByText(/invalid email or password/i)).toBeInTheDocument(),
+      expect(screen.getByText(/invalid credentials/i)).toBeInTheDocument(),
     );
   });
 
@@ -96,8 +96,21 @@ describe('\u274c Negative Login Scenarios', () => {
     // No custom email format validation in component
   });
 
-  it.skip('shows "account disabled" for deactivated user', async () => {
-    // Account status handling not implemented
+  it('shows "account disabled" for deactivated user', async () => {
+    mockLogin.mockRejectedValue(new Error('Account is disabled'));
+    render(<SignIn />);
+
+    fireEvent.change(screen.getByPlaceholderText(/email/i), {
+      target: { value: 'disabled@example.com' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/password/i), {
+      target: { value: 'any' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/account is disabled/i)).toBeInTheDocument(),
+    );
   });
 
   it.skip('limits login attempts (rate limit)', async () => {
