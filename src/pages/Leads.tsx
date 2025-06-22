@@ -52,15 +52,17 @@ const Leads = () => {
     Promise.all([
       fetchWithAuth(`${API_BASE_URL}/assignable-users`)
         .then(res => res.json())
-        .then(data => {
+        .then((data: { userid: number; name: string }[]) => {
           const map: Record<string, string> = {};
           if (user) map[String(user.userid)] = user.name;
-          data.forEach((u: any) => { map[String(u.userid)] = u.name; });
+          data.forEach((u: { userid: number; name: string }) => {
+            map[String(u.userid)] = u.name;
+          });
           setUserMap(map);
         }),
       fetchWithAuth(`${API_BASE_URL}/crm-leads`)
         .then(res => res.json())
-        .then(data => setLeads(data))
+        .then((data: Lead[]) => setLeads(data))
     ]).finally(() => setLoading(false));
   }, [user]);
 

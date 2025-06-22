@@ -21,8 +21,8 @@ export function RoleAccessProvider({ children }: { children: React.ReactNode }) 
         const data = await res.json();
         setRoleAccess(data);
       }
-    } catch (err) {
-      console.error("Failed to load role access", err);
+    } catch {
+      // Failed to load role access
     }
   };
 

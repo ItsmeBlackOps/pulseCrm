@@ -106,7 +106,6 @@ const Messages = () => {
       
       setMessages(prev => [...prev, newMsg]);
       setNewMessage('');
-      console.log('Message sent:', newMessage);
     }
   };
 

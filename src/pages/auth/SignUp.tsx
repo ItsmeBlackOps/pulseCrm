@@ -25,7 +25,6 @@ export default function SignUp() {
       return;
     }
     // Handle sign up logic here
-    console.log('Sign up attempt:', formData);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

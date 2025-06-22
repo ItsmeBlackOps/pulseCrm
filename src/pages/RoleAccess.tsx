@@ -30,7 +30,7 @@ export default function RoleAccess() {
     Promise.all([
       fetchWithAuth(`${API_BASE_URL}/roles`)
         .then(res => res.json())
-        .then((data: any[]) => setRoles(data.map(r => r.name)))
+        .then((data: { name: string }[]) => setRoles(data.map(r => r.name)))
         .catch(() => toast({ title: 'Failed to load roles', variant: 'destructive' })),
       fetchWithAuth(`${API_BASE_URL}/role-access`)
         .then(res => res.json())
