@@ -40,12 +40,13 @@ export function StatsCard({ title, value, change, changeLabel, icon, formatter }
 }
 
 export function DashboardStats() {
-  const { fetchWithAuth } = useAuth();
+  const { fetchWithAuth, user } = useAuth();
   const [stats, setStats] = useState({ total: 0, newLeads: 0 });
 
   useEffect(() => {
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-    fetchWithAuth(`${API_BASE_URL}/crm-leads`)
+    const uid = user?.userid ?? '';
+    fetchWithAuth(`${API_BASE_URL}/crm-leads?userId=${uid}`)
       .then(res => res.json())
       .then((data: { createdat?: string }[]) => {
         const total = data.length;
@@ -55,7 +56,7 @@ export function DashboardStats() {
       .catch(() => {
         setStats({ total: 0, newLeads: 0 });
       });
-  }, [fetchWithAuth]);
+  }, [fetchWithAuth, user]);
 
   const formatCurrency = (value: number | string) => {
     return new Intl.NumberFormat('en-US', {

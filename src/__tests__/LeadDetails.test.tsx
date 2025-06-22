@@ -13,11 +13,18 @@ vi.mock('../components/layout/DashboardLayout', () => ({
 }));
 
 vi.mock('../components/ui/select', () => {
-  const Select = ({ value, onValueChange, children, ...props }: any) => (
+  interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+    value?: string;
+    onValueChange?: (value: string) => void;
+    children?: React.ReactNode;
+  }
+  const Select = ({ value, onValueChange, children, ...props }: SelectProps) => (
     <select {...props} value={value} onChange={(e) => onValueChange?.(e.target.value)}>{children}</select>
   );
-  const Fragment = ({ children }: any) => <>{children}</>;
-  const SelectItem = ({ value, children }: any) => <option value={value}>{children}</option>;
+  const Fragment = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
+  const SelectItem = ({ value, children }: { value?: string; children?: React.ReactNode }) => (
+    <option value={value}>{children}</option>
+  );
   return {
     Select,
     SelectTrigger: Fragment,
