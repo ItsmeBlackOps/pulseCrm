@@ -153,7 +153,7 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
               <NavItem componentId="deals" icon={TrendingUp} label="Deals" href="/deals" isCollapsed={isCollapsed} />
               <NavItem componentId="deals" icon={FileText} label="Deal Details" href="/deal-details" isCollapsed={isCollapsed} />
               <NavItem componentId="leads" icon={Target} label="Leads" href="/leads" isCollapsed={isCollapsed} />
-              <NavItem componentId="leads" icon={ClipboardList} label="Lead Details" href="/lead-details" isCollapsed={isCollapsed} />
+              {/* <NavItem componentId="leads" icon={ClipboardList} label="Lead Details" href="/lead-details" isCollapsed={isCollapsed} /> */}
               <NavItem componentId="reports" icon={BarChart3} label="Reports" href="/reports" isCollapsed={isCollapsed} />
               <NavItem componentId="reports" icon={FileText} label="Report Details" href="/report-details" isCollapsed={isCollapsed} />
             </nav>

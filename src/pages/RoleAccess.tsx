@@ -10,45 +10,64 @@ import { LoadingOverlay } from '@/components/ui/loading-overlay';
 
 const components = [
   { id: 'dashboard', name: 'Dashboard' },
-  { id: 'contacts', name: 'Contacts' },
-  { id: 'deals', name: 'Deals' },
-  { id: 'leads', name: 'Leads' },
-  { id: 'reports', name: 'Reports' },
-  { id: 'settings', name: 'Settings' }
+  { id: 'analytics', name: 'Analytics' },
+  { id: 'contacts',  name: 'Contacts'  },
+  { id: 'deals',     name: 'Deals'     },
+  { id: 'leads',     name: 'Leads'     },
+  { id: 'reports',   name: 'Reports'   },
+  { id: 'reportdetails',   name: 'Report Details'   },
+  { id: 'settings',  name: 'Settings'  },
+  {id: 'roleaccess', name: "Role Access"},
+  { id: 'usermanagement', name: 'User Mgmt' }
 ];
 
-export default function RoleAccess() {
-  const { toast } = useToast();
-  const { fetchWithAuth } = useAuth();
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-  const [roles, setRoles] = useState<string[]>([]);
-  const [permissions, setPermissions] = useState<Record<string, Record<string, boolean>>>({});
-  const [loading, setLoading] = useState(true);
+type Role = { roleid: number; name: string };
+type PermissionsMap = Record<string, Record<string, boolean>>;
 
+export default function RoleAccess() {
+  const { toast }        = useToast();
+  const { fetchWithAuth, user } = useAuth();
+  const [roles, setRoles]           = useState<Role[]>([]);
+  const [permissions, setPermissions] = useState<PermissionsMap>({});
+  const [loading, setLoading]       = useState(true);
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+  // Load both roles & current permissions
   useEffect(() => {
     setLoading(true);
     Promise.all([
+      // 1) fetch roles (with IDs!)
       fetchWithAuth(`${API_BASE_URL}/roles`)
         .then(res => res.json())
-        .then((data: { name: string }[]) => setRoles(data.map(r => r.name)))
+        .then((data: Role[]) => setRoles(data))
         .catch(() => toast({ title: 'Failed to load roles', variant: 'destructive' })),
+
+      // 2) fetch role-component-access
       fetchWithAuth(`${API_BASE_URL}/role-access`)
         .then(res => res.json())
-        .then(data => setPermissions(data))
+        .then((data: PermissionsMap) => setPermissions(data))
         .catch(() => toast({ title: 'Failed to load permissions', variant: 'destructive' }))
-    ]).finally(() => setLoading(false));
-  }, [fetchWithAuth, toast, API_BASE_URL]);
+    ])
+    .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
-  const togglePermission = (componentId: string, role: string) => {
-    setPermissions(prev => ({
-      ...prev,
-      [componentId]: {
-        ...prev[componentId],
-        [role]: !prev?.[componentId]?.[role]
-      }
-    }));
+  // Toggle a boolean in the map, keyed by componentId + numeric roleid
+  const togglePermission = (componentId: string, roleid: number) => {
+    setPermissions(prev => {
+      const compMap = prev[componentId] ?? {};
+      const key = String(roleid);
+      return {
+        ...prev,
+        [componentId]: {
+          ...compMap,
+          [key]: !compMap[key]
+        }
+      };
+    });
   };
 
+  // POST the updated map back to the server
   const handleSave = async () => {
     const res = await fetchWithAuth(`${API_BASE_URL}/role-access`, {
       method: 'POST',
@@ -58,8 +77,8 @@ export default function RoleAccess() {
     if (res.ok) {
       toast({ title: 'Permissions updated' });
     } else {
-      const data = await res.json().catch(() => ({}));
-      toast({ title: data.message || 'Error updating permissions', variant: 'destructive' });
+      const err = await res.json().catch(() => ({}));
+      toast({ title: err.message || 'Error updating permissions', variant: 'destructive' });
     }
   };
 
@@ -67,43 +86,47 @@ export default function RoleAccess() {
     <DashboardLayout>
       <div className="relative min-h-[200px]">
         {loading && <LoadingOverlay />}
+
         {!loading && (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold tracking-tight">Role Access</h1>
-        <Card>
-          <CardHeader>
-            <CardTitle>Component Access by Role</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Component</TableHead>
-                  {roles.map(role => (
-                    <TableHead key={role} className="text-center">{role}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {components.map(comp => (
-                  <TableRow key={comp.id}>
-                    <TableCell className="font-medium">{comp.name}</TableCell>
-                    {roles.map(role => (
-                      <TableCell key={role} className="text-center">
-                        <Checkbox
-                          checked={permissions?.[comp.id]?.[role] ?? false}
-                          onCheckedChange={() => togglePermission(comp.id, role)}
-                        />
-                      </TableCell>
+          <div className="space-y-6">
+            <h1 className="text-3xl font-bold tracking-tight">Role Access</h1>
+            <Card>
+              <CardHeader>
+                <CardTitle>Component Access by Role</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Component</TableHead>
+                      {roles.map(role => (
+                        <TableHead key={role.roleid} className="text-center">
+                          {role.name}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {components.map(comp => (
+                      <TableRow key={comp.id}>
+                        <TableCell className="font-medium">{comp.name}</TableCell>
+                        {roles.map(role => (
+                          <TableCell key={role.roleid} className="text-center">
+                            <Checkbox
+                              checked={permissions[comp.id]?.[String(role.roleid)] ?? false}
+                              onCheckedChange={() => togglePermission(comp.id, role.roleid)}
+                            />
+                          </TableCell>
+                        ))}
+                      </TableRow>
                     ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-        <Button onClick={handleSave}>Save</Button>
-      </div>
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <Button onClick={handleSave}>Save</Button>
+          </div>
         )}
       </div>
     </DashboardLayout>
