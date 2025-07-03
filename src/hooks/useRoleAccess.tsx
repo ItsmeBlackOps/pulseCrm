@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
 
 interface RoleAccessContextType {
+  /** e.g. { dashboard: true, contacts: false, … } */
   roleAccess: Record<string, boolean>;
   refreshRoleAccess: () => Promise<void>;
 }
@@ -19,34 +20,35 @@ export function RoleAccessProvider({ children }: { children: React.ReactNode }) 
       setRoleAccess({});
       return;
     }
+
     try {
       const res = await fetchWithAuth(`${API_BASE_URL}/role-access`);
-      if (res.ok) {
-        const data = await res.json();
-        const roleMap: Record<number, string> = {
-          1: 'superadmin',
-          2: 'admin',
-          3: 'manager',
-          4: 'lead',
-          5: 'agent'
-        };
-        const roleName = roleMap[user.roleid];
-        const access: Record<string, boolean> = {};
-        for (const [componentId, roles] of Object.entries(data)) {
-          if (typeof roles === 'object' && roleName in (roles as Record<string, boolean>)) {
-            access[componentId] = (roles as Record<string, boolean>)[roleName];
-          }
-        }
-        setRoleAccess(access);
+      if (!res.ok) {
+        console.error("Failed to fetch role-access", res.status);
+        return;
       }
-    } catch {
-      // Failed to load role access
+
+      // payload is { component: { "1": true, "2": true, … }, … }
+      const data: Record<string, Record<string, boolean>> = await res.json();
+
+      // our current user's roleid is a number; JSON keys are strings
+      const myRoleKey = String(user.roleid);
+
+      // build a flat map: component → allowed?  
+      const access: Record<string, boolean> = {};
+      for (const [component, rolesMap] of Object.entries(data)) {
+        access[component] = !!rolesMap[myRoleKey];
+      }
+
+      setRoleAccess(access);
+    } catch (err) {
+      console.error("Error loading role-access", err);
     }
   };
 
   useEffect(() => {
     loadAccess();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // we only really care if `user` changes
   }, [user]);
 
   return (
