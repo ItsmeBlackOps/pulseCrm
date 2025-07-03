@@ -2,8 +2,21 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
 
+// your canonical component list
+const COMPONENTS = [
+  { id: 'dashboard', name: 'Dashboard' },
+  { id: 'analytics', name: 'Analytics' },
+  { id: 'contacts',  name: 'Contacts'  },
+  { id: 'deals',     name: 'Deals'     },
+  { id: 'leads',     name: 'Leads'     },
+  { id: 'reports',   name: 'Reports'   },
+  { id: 'reportdetails',   name: 'Report Details'   },
+  { id: 'settings',  name: 'Settings'  },
+  {id: 'roleaccess', name: "Role Access"},
+  { id: 'usermanagement', name: 'User Mgmt' }
+];
+
 interface RoleAccessContextType {
-  /** e.g. { dashboard: true, contacts: false, … } */
   roleAccess: Record<string, boolean>;
   refreshRoleAccess: () => Promise<void>;
 }
@@ -13,42 +26,37 @@ const RoleAccessContext = createContext<RoleAccessContextType | undefined>(undef
 export function RoleAccessProvider({ children }: { children: React.ReactNode }) {
   const { fetchWithAuth, user } = useAuth();
   const [roleAccess, setRoleAccess] = useState<Record<string, boolean>>({});
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+  const API = import.meta.env.VITE_API_BASE_URL;
 
   const loadAccess = async () => {
     if (!user) {
-      setRoleAccess({});
+      // no user = no access
+      setRoleAccess(COMPONENTS.reduce((acc, c) => {
+        acc[c.id] = false;
+        return acc;
+      }, {} as Record<string, boolean>));
       return;
     }
 
-    try {
-      const res = await fetchWithAuth(`${API_BASE_URL}/role-access`);
-      if (!res.ok) {
-        console.error("Failed to fetch role-access", res.status);
-        return;
-      }
-
-      // payload is { component: { "1": true, "2": true, … }, … }
-      const data: Record<string, Record<string, boolean>> = await res.json();
-
-      // our current user's roleid is a number; JSON keys are strings
-      const myRoleKey = String(user.roleid);
-
-      // build a flat map: component → allowed?  
-      const access: Record<string, boolean> = {};
-      for (const [component, rolesMap] of Object.entries(data)) {
-        access[component] = !!rolesMap[myRoleKey];
-      }
-
-      setRoleAccess(access);
-    } catch (err) {
-      console.error("Error loading role-access", err);
+    const res = await fetchWithAuth(`${API}/role-access`);
+    if (!res.ok) {
+      console.error("Failed to fetch role-access", res.status);
+      return;
     }
+    const data: Record<string, Record<string, boolean>> = await res.json();
+    const key = String(user.roleid);
+
+    // Build an explicit map of every component → allowed?
+    const access = COMPONENTS.reduce((acc, { id }) => {
+      acc[id] = Boolean(data[id]?.[key]);
+      return acc;
+    }, {} as Record<string, boolean>);
+
+    setRoleAccess(access);
   };
 
   useEffect(() => {
     loadAccess();
-    // we only really care if `user` changes
   }, [user]);
 
   return (
