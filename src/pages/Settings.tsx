@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,9 +14,19 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { User, Bell, Shield, Palette, Globe, Database, Key } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+
+const roleMap: Record<number, string> = {
+  1: 'Super Admin',
+  2: 'Admin',
+  3: 'Manager',
+  4: 'Lead',
+  5: 'Agent'
+};
 
 const Settings = () => {
   const { toast } = useToast();
+  const { user, refreshUser } = useAuth();
   const [profile, setProfile] = useState({
     firstName: 'John',
     lastName: 'Doe',
@@ -27,13 +37,13 @@ const Settings = () => {
     bio: 'Experienced sales professional with 5+ years in CRM and customer relationship management.'
   });
 
-  const [notifications, setNotifications] = useState({
-    emailNotifications: true,
-    pushNotifications: true,
+  const [notifications] = useState({
+    emailNotifications: false,
+    pushNotifications: false,
     smsNotifications: false,
-    marketingEmails: true,
-    weeklyReports: true,
-    newLeadAlerts: true
+    marketingEmails: false,
+    weeklyReports: false,
+    newLeadAlerts: false
   });
 
   const [preferences, setPreferences] = useState({
@@ -43,6 +53,23 @@ const Settings = () => {
     dateFormat: 'MM/DD/YYYY',
     currency: 'USD'
   });
+
+  useEffect(() => {
+    refreshUser();
+  }, [refreshUser]);
+
+  useEffect(() => {
+    if (user) {
+      const [first = '', ...rest] = user.name.split(' ');
+      setProfile(prev => ({
+        ...prev,
+        firstName: first,
+        lastName: rest.join(' '),
+        email: user.email,
+        position: roleMap[user.roleid] || prev.position
+      }));
+    }
+  }, [user]);
 
   const handleSaveProfile = () => {
     toast({
@@ -139,7 +166,7 @@ const Settings = () => {
                     <Input
                       id="company"
                       value={profile.company}
-                      onChange={(e) => setProfile({...profile, company: e.target.value})}
+                      readOnly
                     />
                   </div>
                   <div className="space-y-2">
@@ -147,7 +174,7 @@ const Settings = () => {
                     <Input
                       id="position"
                       value={profile.position}
-                      onChange={(e) => setProfile({...profile, position: e.target.value})}
+                      readOnly
                     />
                   </div>
                 </div>
@@ -183,7 +210,7 @@ const Settings = () => {
                     </div>
                     <Switch
                       checked={notifications.emailNotifications}
-                      onCheckedChange={(checked) => setNotifications({...notifications, emailNotifications: checked})}
+                      disabled
                     />
                   </div>
                   <Separator />
@@ -194,7 +221,7 @@ const Settings = () => {
                     </div>
                     <Switch
                       checked={notifications.pushNotifications}
-                      onCheckedChange={(checked) => setNotifications({...notifications, pushNotifications: checked})}
+                      disabled
                     />
                   </div>
                   <Separator />
@@ -205,7 +232,7 @@ const Settings = () => {
                     </div>
                     <Switch
                       checked={notifications.smsNotifications}
-                      onCheckedChange={(checked) => setNotifications({...notifications, smsNotifications: checked})}
+                      disabled
                     />
                   </div>
                   <Separator />
@@ -216,7 +243,7 @@ const Settings = () => {
                     </div>
                     <Switch
                       checked={notifications.marketingEmails}
-                      onCheckedChange={(checked) => setNotifications({...notifications, marketingEmails: checked})}
+                      disabled
                     />
                   </div>
                   <Separator />
@@ -227,7 +254,7 @@ const Settings = () => {
                     </div>
                     <Switch
                       checked={notifications.weeklyReports}
-                      onCheckedChange={(checked) => setNotifications({...notifications, weeklyReports: checked})}
+                      disabled
                     />
                   </div>
                   <Separator />
@@ -238,11 +265,11 @@ const Settings = () => {
                     </div>
                     <Switch
                       checked={notifications.newLeadAlerts}
-                      onCheckedChange={(checked) => setNotifications({...notifications, newLeadAlerts: checked})}
+                      disabled
                     />
                   </div>
                 </div>
-                <Button onClick={handleSaveNotifications}>Save Notifications</Button>
+                <Button onClick={handleSaveNotifications} disabled>Save Notifications</Button>
               </CardContent>
             </Card>
           </TabsContent>

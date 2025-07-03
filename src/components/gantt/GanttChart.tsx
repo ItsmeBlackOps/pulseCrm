@@ -10,9 +10,16 @@ interface Task {
   parent?: string;
 }
 
+interface Link {
+  id: string;
+  source: string;
+  target: string;
+  type?: string;
+}
+
 interface GanttChartProps {
   tasks?: Task[];
-  links?: any[];
+  links?: Link[];
 }
 
 export function GanttChart({ tasks = [], links = [] }: GanttChartProps) {

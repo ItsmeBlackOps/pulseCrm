@@ -1,68 +1,80 @@
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { LoadingOverlay } from '@/components/ui/loading-overlay';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, Plus, Filter, Target, TrendingUp, Users, Star } from 'lucide-react';
+import { Search, Plus, Filter, Target, TrendingUp, Users, Trash2 } from 'lucide-react';
+import { differenceInDays } from 'date-fns';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { useNotifications } from '@/hooks/useNotifications';
+
+const visaStatusMap: Record<number, string> = {
+  1: 'H1B',
+  2: 'F1',
+  3: 'OPT',
+  4: 'STEM',
+  5: 'Green Card',
+  6: 'USC',
+  7: 'H4'
+};
 
 interface Lead {
-  id: string;
-  name: string;
+  id: number;
+  firstname: string;
+  lastname: string;
   email: string;
+  phone?: string;
   company: string;
-  source: string;
-  status: 'new' | 'contacted' | 'qualified' | 'unqualified' | 'converted';
-  score: number;
-  createdDate: string;
-  owner: string;
-  avatar: string;
+  source?: string;
+  status: string;
+  assignedto?: string;
+  createdat?: string;
+  updatedat?: string;
+  createdby?: number;
+  visastatusid?: number;
 }
 
 const Leads = () => {
+  const { fetchWithAuth, user } = useAuth();
+  const { toast } = useToast();
+  const { addNotification } = useNotifications();
   const [searchTerm, setSearchTerm] = useState('');
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [userMap, setUserMap] = useState<Record<string, string>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const leadsPerPage = 10;
 
-  const leads: Lead[] = [
-    {
-      id: '1',
-      name: 'Alice Johnson',
-      email: 'alice@example.com',
-      company: 'Tech Solutions Inc.',
-      source: 'Website',
-      status: 'new',
-      score: 85,
-      createdDate: '2024-01-10',
-      owner: 'John Smith',
-      avatar: '/placeholder.svg'
-    },
-    {
-      id: '2',
-      name: 'Bob Wilson',
-      email: 'bob@startup.com',
-      company: 'Startup ABC',
-      source: 'LinkedIn',
-      status: 'contacted',
-      score: 72,
-      createdDate: '2024-01-08',
-      owner: 'Sarah Johnson',
-      avatar: '/placeholder.svg'
-    },
-    {
-      id: '3',
-      name: 'Carol Davis',
-      email: 'carol@bigcorp.com',
-      company: 'BigCorp Ltd.',
-      source: 'Referral',
-      status: 'qualified',
-      score: 95,
-      createdDate: '2024-01-05',
-      owner: 'Mike Wilson',
-      avatar: '/placeholder.svg'
-    }
-  ];
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+  useEffect(() => {
+    setLoading(true);
+    const uid = user?.userid ?? '';
+    Promise.all([
+      fetchWithAuth(`${API_BASE_URL}/assignable-users?userId=${uid}`)
+        .then(res => res.json())
+        .then((data: { userid: number; name: string }[]) => {
+          const map: Record<string, string> = {};
+          if (user) map[String(user.userid)] = user.name;
+          data.forEach((u: { userid: number; name: string }) => {
+            map[String(u.userid)] = u.name;
+          });
+          setUserMap(map);
+        }),
+      fetchWithAuth(`${API_BASE_URL}/crm-leads?userId=${uid}`)
+        .then(res => res.json())
+        .then((data: Lead[]) => setLeads(data))
+    ]).finally(() => setLoading(false));
+  }, [user, fetchWithAuth, API_BASE_URL]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, leads]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -75,25 +87,43 @@ const Leads = () => {
     }
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-600';
-    if (score >= 60) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
   const filteredLeads = leads.filter(lead =>
-    lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    `${lead.firstname} ${lead.lastname}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
     lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     lead.company.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const totalPages = Math.ceil(filteredLeads.length / leadsPerPage);
+  const paginatedLeads = filteredLeads.slice(
+    (currentPage - 1) * leadsPerPage,
+    currentPage * leadsPerPage
+  );
+
   const totalLeads = leads.length;
   const qualifiedLeads = leads.filter(lead => lead.status === 'qualified').length;
-  const avgScore = leads.reduce((sum, lead) => sum + lead.score, 0) / leads.length;
+  const newLeads = leads.filter(l => l.createdat && differenceInDays(new Date(), new Date(l.createdat)) <= 7).length;
+  const converted = leads.filter(l => l.status === 'converted').length;
+  const conversionRate = totalLeads ? Math.round((converted / totalLeads) * 100) : 0;
+
+  const deleteLead = async (lead: Lead) => {
+    if (!confirm('Delete this lead?')) return;
+    const res = await fetchWithAuth(`${API_BASE_URL}/crm-leads/${lead.id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setLeads(prev => prev.filter(l => l.id !== lead.id));
+      toast({ title: 'Lead deleted' });
+      addNotification(`${user?.name || 'User'} deleted lead ${lead.firstname} ${lead.lastname} for ${lead.company}`);
+    } else {
+      const data = await res.json();
+      toast({ title: data.message || 'Error deleting lead', variant: 'destructive' });
+    }
+  };
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="relative min-h-[200px]">
+        {loading && <LoadingOverlay />}
+        {!loading && (
+          <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Leads</h1>
@@ -116,7 +146,7 @@ const Leads = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalLeads}</div>
-              <p className="text-xs text-muted-foreground">+8 new this week</p>
+              <p className="text-xs text-muted-foreground">+{newLeads} new this week</p>
             </CardContent>
           </Card>
           <Card>
@@ -126,17 +156,7 @@ const Leads = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{qualifiedLeads}</div>
-              <p className="text-xs text-muted-foreground">+2 from last week</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg. Lead Score</CardTitle>
-              <Star className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{avgScore.toFixed(0)}</div>
-              <p className="text-xs text-muted-foreground">+3 points this month</p>
+              <p className="text-xs text-muted-foreground">Qualified leads</p>
             </CardContent>
           </Card>
           <Card>
@@ -145,8 +165,8 @@ const Leads = () => {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">24%</div>
-              <p className="text-xs text-muted-foreground">+2% from last month</p>
+              <div className="text-2xl font-bold">{conversionRate}%</div>
+              <p className="text-xs text-muted-foreground">Conversion rate</p>
             </CardContent>
           </Card>
         </div>
@@ -178,42 +198,70 @@ const Leads = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {filteredLeads.map((lead) => (
-                <div key={lead.id} className="flex items-center space-x-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={lead.avatar} alt={lead.name} />
-                    <AvatarFallback>{lead.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold">{lead.name}</h3>
-                      <div className={`text-lg font-bold ${getScoreColor(lead.score)}`}>
-                        {lead.score}/100
+                {paginatedLeads.map((lead) => (
+                  <div key={lead.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-semibold truncate">
+                          {lead.firstname} {lead.lastname}
+                        </h3>
+                        <Badge variant="secondary" className="ml-auto">
+                          {lead.company}
+                        </Badge>
+                        <Link
+                          to={`/lead-details/${lead.id}`}
+                          className="text-sm text-primary underline"
+                        >
+                          Edit
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="delete"
+                          onClick={() => deleteLead(lead)}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </div>
+                      <div className="flex gap-4 text-sm text-muted-foreground">
+                        <span>{lead.email}</span>
+                        {lead.phone && <span>{lead.phone}</span>}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
+                        <Badge className={getStatusColor(lead.status)}>
+                          {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
+                        </Badge>
+                        {lead.visastatusid && (
+                          <Badge variant="outline">{visaStatusMap[lead.visastatusid]}</Badge>
+                        )}
+                        {lead.source && (
+                          <span className="text-sm text-muted-foreground">Source: {lead.source}</span>
+                        )}
+                        {lead.assignedto && (
+                          <span className="text-sm text-muted-foreground">Owner: {userMap[lead.assignedto] || lead.assignedto}</span>
+                        )}
+                        {lead.createdby && (
+                          <span className="text-sm text-muted-foreground">Created By: {userMap[String(lead.createdby)] || lead.createdby}</span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground mt-1">
+                        {lead.createdat && <span>Created: {new Date(lead.createdat).toLocaleDateString()}</span>}
+                        {lead.updatedat && <span>Updated: {new Date(lead.updatedat).toLocaleDateString()}</span>}
                       </div>
                     </div>
-                    <p className="text-sm text-muted-foreground">{lead.email}</p>
-                    <p className="text-sm text-muted-foreground">{lead.company}</p>
-                    <div className="flex items-center space-x-4 mt-2">
-                      <Badge className={getStatusColor(lead.status)}>
-                        {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
-                      </Badge>
-                      <span className="text-sm text-muted-foreground">
-                        Source: {lead.source}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        Created: {new Date(lead.createdDate).toLocaleDateString()}
-                      </span>
-                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">{lead.owner}</p>
-                    <p className="text-sm text-muted-foreground">Owner</p>
-                  </div>
+                ))}
+                <div className="flex justify-between items-center mt-4">
+                  <Button variant="outline" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Prev</Button>
+                  <span className="text-sm">Page {currentPage} of {totalPages}</span>
+                  <Button variant="outline" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
                 </div>
-              ))}
             </div>
           </CardContent>
         </Card>
+      </div>
+        )}
       </div>
     </DashboardLayout>
   );

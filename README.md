@@ -26,6 +26,29 @@ npm i
 npm run dev
 ```
 
+## Environment Variables
+
+Create a `.env` file in the project root with the following variable pointing to your backend API:
+
+```env
+VITE_API_BASE_URL=http://localhost:3001
+```
+
+All API requests use this variable.
+
+## Token Refresh Behavior
+
+The `AuthProvider` stores both an access token and refresh token after a
+successful login. The application expects your backend to expose a `POST
+/refresh` endpoint that accepts the stored refresh token and returns a new pair
+of tokens.
+
+When any authenticated request returns `401`, `fetchWithAuth` will call
+`refreshToken()` and retry the original request once. If refreshing also fails
+with `401`, the user is logged out and local storage is cleared.
+
+Ensure your backend implements `/refresh` for this workflow to succeed.
+
 ## What technologies are used for this project?
 
 This project is built with:

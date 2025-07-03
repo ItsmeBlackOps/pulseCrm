@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, BarChart3, MessageSquare, Calendar, Settings, LogOut, ChevronLeft, ChevronRight, LifeBuoy, TrendingUp, FileText, UserPlus, Target, ClipboardList, ChevronDown, User, AlertTriangle, Award, Navigation, MousePointer, CalendarDays, CreditCard, ImageIcon, Menu, GanttChart, List, Square, PanelLeftOpen, BarChart, Image, Loader, Zap, HelpCircle, Type, MessageCircle, Eye, ArrowUpDown, Lock, UserCheck, KeyRound, RotateCcw } from 'lucide-react';
+import { LayoutDashboard, BarChart3, Settings, LogOut, ChevronLeft, ChevronRight, LifeBuoy, TrendingUp, FileText, Target, ClipboardList, KeyRound, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Link, useLocation } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { useAuth } from '@/hooks/useAuth';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -17,12 +19,16 @@ interface NavItemProps {
   icon: React.ElementType;
   label: string;
   href: string;
+  componentId: string;
   isCollapsed?: boolean;
   badge?: string;
 }
 
-function NavItem({ icon: Icon, label, href, isCollapsed, badge }: NavItemProps) {
+
+function NavItem({ icon: Icon, label, href, componentId, isCollapsed, badge }: NavItemProps) {
+  const { roleAccess } = useRoleAccess();
   const location = useLocation();
+  if (roleAccess && componentId && roleAccess[componentId] === false) return null;
   const isActive = location.pathname === href || (href === '/' && location.pathname === '/');
 
   return (
@@ -53,6 +59,7 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
 
   const handleToggleCollapse = () => {
     if (!isMobile) {
@@ -127,10 +134,7 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
         <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-2 min-h-0">
           <div className="flex flex-col gap-1">
             <nav className="grid gap-1">
-              <NavItem icon={LayoutDashboard} label="Dashboard" href="/" isCollapsed={isCollapsed} />
-              <NavItem icon={Users} label="Contacts" href="/contacts" isCollapsed={isCollapsed} />
-              <NavItem icon={MessageSquare} label="Messages" href="/messages" isCollapsed={isCollapsed} />
-              <NavItem icon={Calendar} label="Calendar" href="/calendar" isCollapsed={isCollapsed} />
+              <NavItem componentId="dashboard" icon={LayoutDashboard} label="Dashboard" href="/" isCollapsed={isCollapsed} />
             </nav>
 
           
@@ -145,78 +149,27 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
             )}
 
             <nav className="grid gap-1">
-              <NavItem icon={BarChart3} label="Analytics" href="/analytics" isCollapsed={isCollapsed} />
-              <NavItem icon={TrendingUp} label="Deals" href="/deals" isCollapsed={isCollapsed} />
-              <NavItem icon={FileText} label="Deal Details" href="/deal-details" isCollapsed={isCollapsed} />
-              <NavItem icon={Target} label="Leads" href="/leads" isCollapsed={isCollapsed} />
-              <NavItem icon={ClipboardList} label="Lead Details" href="/lead-details" isCollapsed={isCollapsed} />
-              <NavItem icon={BarChart3} label="Reports" href="/reports" isCollapsed={isCollapsed} />
-              <NavItem icon={FileText} label="Report Details" href="/report-details" isCollapsed={isCollapsed} />
-              <NavItem icon={UserPlus} label="Add Contact" href="/add-contact" isCollapsed={isCollapsed} />
+              <NavItem componentId="analytics" icon={BarChart3} label="Analytics" href="/analytics" isCollapsed={isCollapsed} />
+              <NavItem componentId="deals" icon={TrendingUp} label="Deals" href="/deals" isCollapsed={isCollapsed} />
+              <NavItem componentId="deals" icon={FileText} label="Deal Details" href="/deal-details" isCollapsed={isCollapsed} />
+              <NavItem componentId="leads" icon={Target} label="Leads" href="/leads" isCollapsed={isCollapsed} />
+              <NavItem componentId="leads" icon={ClipboardList} label="Lead Details" href="/lead-details" isCollapsed={isCollapsed} />
+              <NavItem componentId="reports" icon={BarChart3} label="Reports" href="/reports" isCollapsed={isCollapsed} />
+              <NavItem componentId="reports" icon={FileText} label="Report Details" href="/report-details" isCollapsed={isCollapsed} />
             </nav>
 
-            <Separator className="my-4" />
-
-            {/* Authentication Section */}
-            {!isCollapsed && (
-              <div className="px-3 py-2">
-                <h4 className="text-xs font-semibold text-sidebar-foreground/70 uppercase tracking-wider">Authentication</h4>
-              </div>
-            )}
-
-            <nav className="grid gap-1">
-              <NavItem icon={Lock} label="Sign In" href="/auth/signin" isCollapsed={isCollapsed} />
-              <NavItem icon={UserCheck} label="Sign Up" href="/auth/signup" isCollapsed={isCollapsed} />
-              <NavItem icon={KeyRound} label="Forgot Password" href="/auth/forgot-password" isCollapsed={isCollapsed} />
-              <NavItem icon={RotateCcw} label="Reset Password" href="/auth/reset-password" isCollapsed={isCollapsed} />
-            </nav>
-
-            <Separator className="my-4" />
-
-            {/* Components Section */}
-            {!isCollapsed && (
-              <div className="px-3 py-2">
-                <h4 className="text-xs font-semibold text-sidebar-foreground/70 uppercase tracking-wider">Components</h4>
-              </div>
-            )}
-
-            <nav className="grid gap-1">
-              <NavItem icon={ChevronDown} label="Accordion" href="/components/accordion" isCollapsed={isCollapsed} />
-              <NavItem icon={User} label="Avatar" href="/components/avatar" isCollapsed={isCollapsed} />
-              <NavItem icon={AlertTriangle} label="Alerts" href="/components/alerts" isCollapsed={isCollapsed} />
-              <NavItem icon={Award} label="Badge" href="/components/badge" isCollapsed={isCollapsed} />
-              <NavItem icon={Navigation} label="Breadcrumb" href="/components/breadcrumb" isCollapsed={isCollapsed} />
-              <NavItem icon={MousePointer} label="Buttons" href="/components/buttons" isCollapsed={isCollapsed} />
-              <NavItem icon={CalendarDays} label="Calendar" href="/components/calendar" isCollapsed={isCollapsed} />
-              <NavItem icon={CreditCard} label="Card" href="/components/card" isCollapsed={isCollapsed} />
-              <NavItem icon={ImageIcon} label="Carousel" href="/components/carousel" isCollapsed={isCollapsed} />
-              <NavItem icon={ChevronDown} label="Collapse" href="/components/collapse" isCollapsed={isCollapsed} />
-              <NavItem icon={Menu} label="Dropdown" href="/components/dropdown" isCollapsed={isCollapsed} />
-              <NavItem icon={GanttChart} label="DHTMLX Gantt" href="/components/gantt" isCollapsed={isCollapsed} badge="New" />
-              <NavItem icon={List} label="List Group" href="/components/list-group" isCollapsed={isCollapsed} />
-              <NavItem icon={Square} label="Modals" href="/components/modals" isCollapsed={isCollapsed} />
-              <NavItem icon={PanelLeftOpen} label="Navs & Tabs" href="/components/navs-tabs" isCollapsed={isCollapsed} />
-              <NavItem icon={PanelLeftOpen} label="Offcanvas" href="/components/offcanvas" isCollapsed={isCollapsed} />
-              <NavItem icon={BarChart} label="Progress Bar" href="/components/progress" isCollapsed={isCollapsed} />
-              <NavItem icon={Image} label="Placeholder" href="/components/placeholder" isCollapsed={isCollapsed} />
-              <NavItem icon={ChevronLeft} label="Pagination" href="/components/pagination" isCollapsed={isCollapsed} />
-              <NavItem icon={MessageSquare} label="Popovers" href="/components/popovers" isCollapsed={isCollapsed} />
-              <NavItem icon={Eye} label="Scrollspy" href="/components/scrollspy" isCollapsed={isCollapsed} />
-              <NavItem icon={ArrowUpDown} label="Sortable" href="/components/sortable" isCollapsed={isCollapsed} />
-              <NavItem icon={Loader} label="Spinners" href="/components/spinners" isCollapsed={isCollapsed} />
-              <NavItem icon={Zap} label="Toast" href="/components/toast" isCollapsed={isCollapsed} />
-              <NavItem icon={HelpCircle} label="Tooltips" href="/components/tooltips" isCollapsed={isCollapsed} />
-              <NavItem icon={Type} label="Typed Text" href="/components/typed-text" isCollapsed={isCollapsed} />
-              <NavItem icon={MessageCircle} label="Chat Widget" href="/components/chat-widget" isCollapsed={isCollapsed} />
-            </nav>
           </div>
         </div>
 
         {/* Fixed Footer */}
         <div className="border-t border-border p-2 flex-shrink-0">
           <nav className="grid gap-1">
-            <NavItem icon={Settings} label="Settings" href="/settings" isCollapsed={isCollapsed} />
-            <NavItem icon={LifeBuoy} label="Support" href="/support" isCollapsed={isCollapsed} />
+            <NavItem componentId="settings" icon={KeyRound} label="Role Access" href="/role-access" isCollapsed={isCollapsed} />
+            <NavItem componentId="settings" icon={UserCheck} label="User Management" href="/user-management" isCollapsed={isCollapsed} />
+            <NavItem componentId="settings" icon={Settings} label="Settings" href="/settings" isCollapsed={isCollapsed} />
+            {user?.roleid === 1 && (
+              <NavItem componentId="support" icon={LifeBuoy} label="Support" href="/support" isCollapsed={isCollapsed} />
+            )}
             <Button
               variant="ghost"
               className={cn('flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all', 'justify-start text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-accent')}
