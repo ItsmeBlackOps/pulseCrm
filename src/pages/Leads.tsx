@@ -20,7 +20,8 @@ const visaStatusMap: Record<number, string> = {
   4: 'STEM',
   5: 'Green Card',
   6: 'USC',
-  7: 'H4'
+  7: 'H4',
+  8: 'GC-USC'
 };
 
 interface Lead {
@@ -37,6 +38,11 @@ interface Lead {
   updatedat?: string;
   createdby?: number;
   visastatusid?: number;
+  checklist?: string[];        // e.g. ["ID","Contract",…]
+  legalName?: string;
+  ssnLast4?: string;
+  notes?: string;
+
 }
 
 const Leads = () => {
@@ -87,11 +93,39 @@ const Leads = () => {
     }
   };
 
-  const filteredLeads = leads.filter(lead =>
-    `${lead.firstname} ${lead.lastname}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    lead.company.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredLeads = leads.filter(lead => {
+  const term = searchTerm.toLowerCase().trim()
+    
+const matchList = (arr?: any[]) =>
+!!arr?.some(item =>
+  String(item).toLowerCase().includes(term)
+)
+
+  // helper to safely test a string field
+  const match = (value?: string) =>
+    !!value && value.toLowerCase().includes(term)
+
+  // date match: format the ISO date into locale string
+  const dateMatch = (iso?: string) =>
+    !!iso && new Date(iso).toLocaleDateString().includes(term)
+
+  return (
+    match(lead.firstname)    ||
+    match(lead.lastname)     ||
+    match(lead.email)        ||
+    match(lead.company)      ||
+    match(lead.status)       ||
+    match(lead.source)       ||
+    match(visaStatusMap[lead.visastatusid ?? 0]) ||
+    match(userMap[lead.assignedto ?? '']) ||
+    dateMatch(lead.createdat)||
+    matchList(lead.checklist)||
+    match(lead.legalName)    ||
+    !!lead.ssnLast4?.includes(term) ||
+    match(lead.notes)
+  )
+})
+;
 
   const totalPages = Math.ceil(filteredLeads.length / leadsPerPage);
   const paginatedLeads = filteredLeads.slice(
