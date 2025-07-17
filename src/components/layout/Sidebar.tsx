@@ -120,7 +120,7 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
           <Link to="/" className="flex items-center space-x-2">
             <div className="flex items-center gap-2 overflow-hidden">
               <div className="bg-primary rounded h-8 w-8 flex items-center justify-center text-white font-bold">P</div>
-              {!isCollapsed && <span className="font-bold text-lg tracking-tight">PulseCRM</span>}
+              {!isCollapsed && <span className="font-bold text-lg tracking-tight">salesHub</span>}
             </div>
           </Link>
 
