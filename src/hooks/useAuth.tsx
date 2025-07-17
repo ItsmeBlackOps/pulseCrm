@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
+  console.log(API_BASE_URL);
   const login = async (email: string, password: string) => {
     const lower = email.toLowerCase();
     const res = await fetch(`${API_BASE_URL}/login`, {
