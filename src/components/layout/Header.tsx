@@ -31,7 +31,7 @@ export function Header({ toggleSidebar, openSettings }: HeaderProps) {
 
         <div className="hidden md:flex md:w-[240px]">
           <Link to="/" className="flex items-center space-x-2">
-            <h1 className="text-xl font-bold tracking-tight">PulseCRM</h1>
+            <h1 className="text-xl font-bold tracking-tight">salesHub</h1>
           </Link>
         </div>
 
