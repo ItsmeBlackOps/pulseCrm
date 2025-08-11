@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -16,7 +22,7 @@ import { LoadingOverlay } from "@/components/ui/loading-overlay";
 const companies = [
   { prefix: "VIZ", name: "Vizva Inc." },
   { prefix: "SIL", name: "Silverspace Inc." },
-  { prefix: "FL", name: "FlawLess" }
+  { prefix: "FL", name: "FlawLess" },
 ];
 
 const visaStatuses = [
@@ -26,13 +32,11 @@ const visaStatuses = [
   { visaStatusId: 4, name: "STEM" },
   { visaStatusId: 5, name: "Green Card" },
   { visaStatusId: 6, name: "USC" },
-  { visaStatusId: 7, name: "H4" }
+  { visaStatusId: 7, name: "H4" },
 ];
 
 function capitalize(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return value.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function formatPhone(value: string) {
@@ -93,10 +97,12 @@ export default function LeadDetails() {
     otherSource: "",
     notes: "",
     assignedto: "",
-    checklist: []
+    checklist: [],
   });
   const [statuses, setStatuses] = useState<string[]>([]);
-  const [assignable, setAssignable] = useState<{ userid: number; name: string }[]>([]);
+  const [assignable, setAssignable] = useState<
+    { userid: number; name: string }[]
+  >([]);
   const [originalForm, setOriginalForm] = useState<LeadForm | null>(null);
   const [loading, setLoading] = useState(true);
   const editMode = !!id;
@@ -107,34 +113,34 @@ export default function LeadDetails() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const uid = user?.userid ?? '';
+        const uid = user?.userid ?? "";
         const [columnsData, assignableUsersData] = await Promise.all([
-          fetchWithAuth(`${API_BASE_URL}/columns`).then(res =>
-            res.json() as Promise<{ title: string }[]>
+          fetchWithAuth(`${API_BASE_URL}/columns`).then(
+            (res) => res.json() as Promise<{ title: string }[]>
           ),
-          fetchWithAuth(`${API_BASE_URL}/assignable-users?userId=${uid}`).then(res =>
-            res.json() as Promise<{ userid: number; name: string }[]>
-          )
+          fetchWithAuth(`${API_BASE_URL}/assignable-users?userId=${uid}`).then(
+            (res) => res.json() as Promise<{ userid: number; name: string }[]>
+          ),
         ]);
 
-        setStatuses(columnsData.map((c: { title: string }) => c.title));
+        setStatuses(columnsData.map((c) => c.title.toLowerCase()));
 
         const assignableList: { userid: number; name: string }[] = [
-          ...assignableUsersData
+          ...assignableUsersData,
         ];
         if (user) {
           assignableList.unshift({ userid: user.userid, name: user.name });
         }
 
         if (editMode) {
-          const uid = user?.userid ?? '';
+          const uid = user?.userid ?? "";
           const leadData = await fetchWithAuth(
             `${API_BASE_URL}/crm-leads/${id}?userId=${uid}`
-          ).then(res => res.json());
+          ).then((res) => res.json());
 
           if (leadData.assignedto) {
             const uid = Number(leadData.assignedto);
-            if (!assignableList.some(u => u.userid === uid)) {
+            if (!assignableList.some((u) => u.userid === uid)) {
               assignableList.push({ userid: uid, name: `User ${uid}` });
             }
           }
@@ -158,7 +164,7 @@ export default function LeadDetails() {
             visastatusid: leadData.visastatusid,
             checklist: leadData.checklist || [],
             legalnamessn: leadData.legalnamessn || leadData.legalNameSsn || "",
-            last4ssn: leadData.last4ssn || leadData.last4Ssn || ""
+            last4ssn: leadData.last4ssn || leadData.last4Ssn || "",
           };
           setForm(loaded);
           setOriginalForm(JSON.parse(JSON.stringify(loaded)));
@@ -176,7 +182,10 @@ export default function LeadDetails() {
   }, [id, user, editMode, fetchWithAuth, API_BASE_URL, toast]);
 
   const addChecklistItem = () => {
-    setForm({ ...form, checklist: [...form.checklist, { label: "", checked: false }] });
+    setForm({
+      ...form,
+      checklist: [...form.checklist, { label: "", checked: false }],
+    });
   };
 
   const updateChecklistItem = (idx: number, value: string) => {
@@ -201,14 +210,14 @@ export default function LeadDetails() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    if (name === 'firstname' || name === 'lastname') {
+    if (name === "firstname" || name === "lastname") {
       setForm({ ...form, [name]: capitalize(value) });
-    } else if (name === 'phone') {
+    } else if (name === "phone") {
       setForm({ ...form, phone: formatPhone(value) });
-    } else if (name === 'legalnamessn') {
+    } else if (name === "legalnamessn") {
       setForm({ ...form, legalnamessn: capitalize(value) });
-    } else if (name === 'last4ssn') {
-      const digits = value.replace(/\D/g, '').slice(0, 4);
+    } else if (name === "last4ssn") {
+      const digits = value.replace(/\D/g, "").slice(0, 4);
       setForm({ ...form, last4ssn: digits });
     } else {
       setForm({ ...form, [name]: value });
@@ -218,29 +227,49 @@ export default function LeadDetails() {
   const saveLead = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!form.firstname || !form.lastname || !form.email || !form.phone || !form.company) {
-      toast({ title: 'Please fill all required fields', variant: 'destructive' });
+    if (
+      !form.firstname ||
+      !form.lastname ||
+      !form.email ||
+      !form.phone ||
+      !form.company
+    ) {
+      toast({
+        title: "Please fill all required fields",
+        variant: "destructive",
+      });
       return;
     }
 
     if (!form.visastatusid) {
-      toast({ title: 'Visa status is required', variant: 'destructive' });
+      toast({ title: "Visa status is required", variant: "destructive" });
       return;
     }
 
     if (!editMode) {
-      const uid = user?.userid ?? '';
+      const uid = user?.userid ?? "";
       const existing: LeadForm[] = await fetchWithAuth(
         `${API_BASE_URL}/crm-leads?userId=${uid}`
-      ).then(r => r.json());
-      if (existing.some((l) => l.email === form.email || l.phone === form.phone || (form.legalnamessn && l.legalnamessn === form.legalnamessn) || (form.last4ssn && l.last4ssn === form.last4ssn))) {
-        toast({ title: 'Duplicate lead found', variant: 'destructive' });
+      ).then((r) => r.json());
+      if (
+        existing.some(
+          (l) =>
+            l.email === form.email ||
+            l.phone === form.phone ||
+            (form.legalnamessn && l.legalnamessn === form.legalnamessn) ||
+            (form.last4ssn && l.last4ssn === form.last4ssn)
+        )
+      ) {
+        toast({ title: "Duplicate lead found", variant: "destructive" });
         return;
       }
     }
 
-    if (form.status === 'signed' && (!form.legalnamessn || !form.last4ssn)) {
-      toast({ title: 'Legal Name SSN and Last4 SSN required for signed status', variant: 'destructive' });
+    if (form.status === "signed" && (!form.legalnamessn || !form.last4ssn)) {
+      toast({
+        title: "Legal Name SSN and Last4 SSN required for signed status",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -252,26 +281,34 @@ export default function LeadDetails() {
       lastcontactedat: null,
       expectedrevenue: null,
       createdby: form.createdby || user?.userid,
-      othersource: form.otherSource || undefined
+      othersource: form.otherSource || undefined,
     };
 
-    const method = editMode ? 'PUT' : 'POST';
-    const url = editMode ? `${API_BASE_URL}/crm-leads/${id}` : `${API_BASE_URL}/crm-leads`;
+    const method = editMode ? "PUT" : "POST";
+    const url = editMode
+      ? `${API_BASE_URL}/crm-leads/${id}`
+      : `${API_BASE_URL}/crm-leads`;
     const res = await fetchWithAuth(url, {
       method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (res.ok) {
-      let notificationMsg = '';
+      let notificationMsg = "";
       if (editMode) {
         const changes: Record<string, { old: unknown; new: unknown }> = {};
         if (originalForm) {
-          Object.keys(form).forEach(key => {
+          Object.keys(form).forEach((key) => {
             const k = key as keyof LeadForm;
-            if (JSON.stringify(form[k]) !== JSON.stringify((originalForm as Record<string, unknown>)[k])) {
-              changes[k] = { old: (originalForm as Record<string, unknown>)[k], new: form[k] };
+            if (
+              JSON.stringify(form[k]) !==
+              JSON.stringify((originalForm as Record<string, unknown>)[k])
+            ) {
+              changes[k] = {
+                old: (originalForm as Record<string, unknown>)[k],
+                new: form[k],
+              };
             }
           });
         }
@@ -279,31 +316,42 @@ export default function LeadDetails() {
           const histPayload = {
             leadId: Number(id),
             state: JSON.stringify(changes),
-            changedAt: new Date().toISOString()
+            changedAt: new Date().toISOString(),
           };
           await fetchWithAuth(`${API_BASE_URL}/crmLeadHistory`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(histPayload)
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(histPayload),
           });
 
           if (changes.status) {
-            notificationMsg = `${user?.name || 'User'} changed status of ${form.firstname} ${form.lastname} for ${form.company} from ${changes.status.old} to ${changes.status.new}`;
+            notificationMsg = `${user?.name || "User"} changed status of ${
+              form.firstname
+            } ${form.lastname} for ${form.company} from ${
+              changes.status.old
+            } to ${changes.status.new}`;
           } else {
-            const fields = Object.keys(changes).join(', ');
-            notificationMsg = `${user?.name || 'User'} updated ${form.firstname} ${form.lastname} for ${form.company} (${fields})`;
+            const fields = Object.keys(changes).join(", ");
+            notificationMsg = `${user?.name || "User"} updated ${
+              form.firstname
+            } ${form.lastname} for ${form.company} (${fields})`;
           }
         }
       } else {
-        notificationMsg = `${user?.name || 'User'} created lead ${form.firstname} ${form.lastname} for ${form.company} with status ${form.status}`;
+        notificationMsg = `${user?.name || "User"} created lead ${
+          form.firstname
+        } ${form.lastname} for ${form.company} with status ${form.status}`;
       }
 
-      const msg = editMode ? 'Lead updated' : 'Lead created';
+      const msg = editMode ? "Lead updated" : "Lead created";
       toast({ title: msg });
       if (notificationMsg) addNotification(notificationMsg);
-      navigate('/leads');
+      navigate("/leads");
     } else {
-      toast({ title: data.message || 'Error saving lead', variant: 'destructive' });
+      toast({
+        title: data.message || "Error saving lead",
+        variant: "destructive",
+      });
     }
   };
 
@@ -314,165 +362,251 @@ export default function LeadDetails() {
       <div className="relative min-h-[200px]">
         {loading && <LoadingOverlay />}
         {!loading && (
-        <div className="space-y-6">
-        <div className="flex items-center space-x-4">
-          <Button variant="outline" size="icon" asChild>
-            <Link to="/leads">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">{editMode ? 'Edit Lead' : 'New Lead'}</h1>
-          </div>
-        </div>
+          <div className="space-y-6">
+            <div className="flex items-center space-x-4">
+              <Button variant="outline" size="icon" asChild>
+                <Link to="/leads">
+                  <ArrowLeft className="h-4 w-4" />
+                </Link>
+              </Button>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">
+                  {editMode ? "Edit Lead" : "New Lead"}
+                </h1>
+              </div>
+            </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Lead Information</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form className="space-y-4" onSubmit={saveLead}>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="firstname">First Name</Label>
-                  <Input id="firstname" name="firstname" value={form.firstname} onChange={handleChange} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastname">Last Name</Label>
-                  <Input id="lastname" name="lastname" value={form.lastname} onChange={handleChange} required />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" name="email" type="email" value={form.email} onChange={handleChange} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" name="phone" value={form.phone} onChange={handleChange} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="company">Company</Label>
-                <Select value={form.company} onValueChange={(v) => setForm({ ...form, company: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select company" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {companies.map((c) => (
-                      <SelectItem key={c.prefix} value={c.name}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statuses.map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="source">Source</Label>
-                <Select value={form.source} onValueChange={(v) => setForm({ ...form, source: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select source" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Website">Website</SelectItem>
-                    <SelectItem value="Referral">Referral</SelectItem>
-                    <SelectItem value="Linkedin">Linkedin</SelectItem>
-                    <SelectItem value="Cold Call">Cold Call</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-                {form.source === 'Other' && (
-                  <Input
-                    className="mt-2"
-                    placeholder="Other source"
-                    name="otherSource"
-                    value={form.otherSource}
-                    onChange={handleChange}
-                  />
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="visastatusid">Visa Status</Label>
-                <Select value={form.visastatusid?.toString() || ''} onValueChange={(v) => setForm({ ...form, visastatusid: Number(v) })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select visa status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {visaStatuses.map(vs => (
-                      <SelectItem key={vs.visaStatusId} value={vs.visaStatusId.toString()}>{vs.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="assignedto">Assigned To</Label>
-                <Select value={form.assignedto} onValueChange={(v) => setForm({ ...form, assignedto: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select user" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {assignable.map(u => (
-                      <SelectItem key={u.userid} value={String(u.userid)}>{u.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Checklist</Label>
-                {form.checklist.map((item, idx) => (
-                  <div key={idx} className="flex items-center space-x-2">
-                    <input type="checkbox" checked={item.checked} onChange={() => toggleChecklistItem(idx)} />
-                    <Input value={item.label} onChange={(e) => updateChecklistItem(idx, e.target.value)} />
-                    <Button type="button" variant="ghost" onClick={() => removeChecklistItem(idx)}>Remove</Button>
+            <Card>
+              <CardHeader>
+                <CardTitle>Lead Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form className="space-y-4" onSubmit={saveLead}>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstname">First Name</Label>
+                      <Input
+                        id="firstname"
+                        name="firstname"
+                        value={form.firstname}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lastname">Last Name</Label>
+                      <Input
+                        id="lastname"
+                        name="lastname"
+                        value={form.lastname}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
                   </div>
-                ))}
-                <Button type="button" variant="outline" onClick={addChecklistItem}>Add Item</Button>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="legalnamessn">Legal Name SSN</Label>
-                  <Input
-                    id="legalnamessn"
-                    name="legalnamessn"
-                    value={form.legalnamessn}
-                    onChange={handleChange}
-                    required={form.status === 'signed'}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="last4ssn">Last 4 SSN</Label>
-                  <Input
-                    id="last4ssn"
-                    name="last4ssn"
-                    value={form.last4ssn}
-                    onChange={handleChange}
-                    maxLength={4}
-                    required={form.status === 'signed'}
-                  />
-                </div>
-              </div>
-              {stageFields && (
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notes</Label>
-                  <Textarea id="notes" name="notes" value={form.notes} onChange={handleChange} />
-                </div>
-              )}
-              <Button type="submit">Save</Button>
-            </form>
-          </CardContent>
-        </Card>
-        </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        value={form.email}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone</Label>
+                      <Input
+                        id="phone"
+                        name="phone"
+                        value={form.phone}
+                        onChange={handleChange}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="company">Company</Label>
+                    <Select
+                      value={form.company}
+                      onValueChange={(v) => setForm({ ...form, company: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select company" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {companies.map((c) => (
+                          <SelectItem key={c.prefix} value={c.name}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Select
+                      value={form.status}
+                      onValueChange={(v) => setForm({ ...form, status: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statuses.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {capitalize(s)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="source">Source</Label>
+                    <Select
+                      value={form.source?.toLowerCase()}
+                      onValueChange={(v) => setForm({ ...form, source: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select source" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[
+                          "Website",
+                          "Referral",
+                          "Linkedin",
+                          "Cold Call",
+                          "Other",
+                        ].map((src) => (
+                          <SelectItem key={src} value={src.toLowerCase()}>
+                            {src}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {form.source === "Other" && (
+                      <Input
+                        className="mt-2"
+                        placeholder="Other source"
+                        name="otherSource"
+                        value={form.otherSource}
+                        onChange={handleChange}
+                      />
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="visastatusid">Visa Status</Label>
+                    <Select
+                      value={form.visastatusid?.toString() || ""}
+                      onValueChange={(v) =>
+                        setForm({ ...form, visastatusid: Number(v) })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select visa status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {visaStatuses.map((vs) => (
+                          <SelectItem
+                            key={vs.visaStatusId}
+                            value={vs.visaStatusId.toString()}
+                          >
+                            {vs.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="assignedto">Assigned To</Label>
+                    <Select
+                      value={form.assignedto}
+                      onValueChange={(v) => setForm({ ...form, assignedto: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select user" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {assignable.map((u) => (
+                          <SelectItem key={u.userid} value={String(u.userid)}>
+                            {u.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Checklist</Label>
+                    {form.checklist.map((item, idx) => (
+                      <div key={idx} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={item.checked}
+                          onChange={() => toggleChecklistItem(idx)}
+                        />
+                        <Input
+                          value={item.label}
+                          onChange={(e) =>
+                            updateChecklistItem(idx, e.target.value)
+                          }
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => removeChecklistItem(idx)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={addChecklistItem}
+                    >
+                      Add Item
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="legalnamessn">Legal Name SSN</Label>
+                      <Input
+                        id="legalnamessn"
+                        name="legalnamessn"
+                        value={form.legalnamessn}
+                        onChange={handleChange}
+                        required={form.status === "signed"}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="last4ssn">Last 4 SSN</Label>
+                      <Input
+                        id="last4ssn"
+                        name="last4ssn"
+                        value={form.last4ssn}
+                        onChange={handleChange}
+                        maxLength={4}
+                        required={form.status === "signed"}
+                      />
+                    </div>
+                  </div>
+                  {stageFields && (
+                    <div className="space-y-2">
+                      <Label htmlFor="notes">Notes</Label>
+                      <Textarea
+                        id="notes"
+                        name="notes"
+                        value={form.notes}
+                        onChange={handleChange}
+                      />
+                    </div>
+                  )}
+                  <Button type="submit">Save</Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
     </DashboardLayout>
