@@ -52,7 +52,7 @@ type Props = {
   enableDepartment?: boolean;
 };
 
-export function CreateUserCard({
+export default function CreateUserCard({
   rolesFromApi,
   managerOptions,
   onCreated,
