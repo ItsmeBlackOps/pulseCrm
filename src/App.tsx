@@ -137,7 +137,7 @@ const App = () => (
               <Route path="/report-details" element={<ProtectedRoute componentId="reports"><ReportDetails /></ProtectedRoute>} />
               <Route path="/add-contact" element={<ProtectedRoute componentId="contacts"><AddContact /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-              <Route path="/role-access" element={<ProtectedRoute componentId="settings"><RoleAccess /></ProtectedRoute>} />
+              <Route path="/role-access" element={<ProtectedRoute componentId="roleaccess"><RoleAccess /></ProtectedRoute>} />
               <Route path="/user-management" element={<ProtectedRoute componentId="settings"><UserManagement /></ProtectedRoute>} />
 
               {/* Authentication routes */}
