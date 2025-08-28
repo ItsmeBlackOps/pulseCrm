@@ -72,11 +72,41 @@ export default function UserManagement() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+  
+    // Map role name -> roleid (e.g. "admin" -> 2)
+    const roleid =
+      form.role ? (roleIdMap[form.role.toLowerCase()] ?? null) : null;
+  
+    // Manager select already stores the userid as a string; convert to number or null
+    const managerid =
+      form.managerId && form.managerId.trim() !== ''
+        ? Number(form.managerId)
+        : null;
+  
+    // If you add department to the form later, convert it too; otherwise stays null
+    const departmentid =
+      // @ts-ignore (only if you haven't typed form.departmentId)
+      form.departmentId && String(form.departmentId).trim() !== ''
+        // @ts-ignore
+        ? Number(form.departmentId)
+        : null;
+  
+    // Build the API payload exactly as backend expects (IDs, not names)
+    const payload = {
+      name: form.name?.trim(),
+      email: form.email?.trim(),
+      password: form.password, // keep as-is if backend needs it here
+      roleid,
+      managerid,
+      departmentid,
+    };
+  
     const res = await fetchWithAuth(`${API_BASE_URL}/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form)
+      body: JSON.stringify(payload),
     });
+  
     if (res.ok) {
       const data = await res.json();
       setUsers(prev => [...prev, data]);
@@ -183,7 +213,7 @@ export default function UserManagement() {
                       <TableRow key={u.userid}>
                         <TableCell>{u.name}</TableCell>
                         <TableCell>{u.email}</TableCell>
-                        <TableCell>{u.role}</TableCell>
+                        <TableCell>{roleMap[u.roleid]}</TableCell>
                         {['admin', 'superadmin'].includes(currentRole) && (
                           <TableCell className="text-right">
                             <Button size="sm" variant="outline" onClick={() => setPwUser(u)}>Change Password</Button>
