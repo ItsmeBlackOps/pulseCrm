@@ -143,56 +143,7 @@ export default function UserManagement() {
         {!loading && (
           <div className="space-y-6">
             <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-            {canCreateUser && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Create User</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form className="space-y-4" onSubmit={handleCreate}>
-                  <div>
-                    <Label htmlFor="name">Name</Label>
-                    <Input id="name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
-                  </div>
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required />
-                  </div>
-                  <div>
-                    <Label htmlFor="role">Role</Label>
-                    <Select value={form.role} onValueChange={value => setForm({ ...form, role: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {allowedRoles.map(r => (
-                          <SelectItem key={r} value={r}>{r}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="manager">Manager</Label>
-                    <Select value={form.managerId} onValueChange={value => setForm({ ...form, managerId: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select manager" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {userOptions.map(m => (
-                          <SelectItem key={m.userid} value={String(m.userid)}>{m.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="password">Password</Label>
-                    <Input id="password" type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required />
-                  </div>
-                  <Button type="submit">Create</Button>
-                </form>
-              </CardContent>
-            </Card>
-            )}
+            // {canCreateUser && }
 
             <Card>
               <CardHeader>
