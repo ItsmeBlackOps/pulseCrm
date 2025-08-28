@@ -58,7 +58,7 @@ import ComponentToast from './pages/components/Toast';
 import ComponentTooltips from './pages/components/Tooltips';
 import ComponentTypedText from './pages/components/TypedText';
 import ComponentChatWidget from './pages/components/ChatWidget';
-
+import CreateUserCard from './pages/components/CreateUserCard';
 function SuperAdminOnly({ children }: { children: JSX.Element }) {
   const { user } = useAuth();
   if (user?.roleid !== 1) {
@@ -138,7 +138,9 @@ const App = () => (
               <Route path="/add-contact" element={<ProtectedRoute componentId="contacts"><AddContact /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/role-access" element={<ProtectedRoute componentId="roleaccess"><RoleAccess /></ProtectedRoute>} />
-              <Route path="/user-management" element={<ProtectedRoute componentId="settings"><UserManagement /></ProtectedRoute>} />
+              <Route path="/user-management" element={<ProtectedRoute componentId="usermanagement"><UserManagement /></ProtectedRoute>} />
+              <Route path="/create-user" element={<ProtectedRoute componentId="usermanagement"><CreateUserCard /></ProtectedRoute>} />
+              
 
               {/* Authentication routes */}
               <Route path="/auth/signin" element={<SignIn />} />
