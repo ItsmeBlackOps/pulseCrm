@@ -11,7 +11,7 @@ export default function ProtectedRoute({ children, componentId }: Props) {
   const { user } = useAuth();
   const { roleAccess } = useRoleAccess();
   if (!user) return <Navigate to="/auth/signin" replace />;
-  if (componentId && roleAccess?.[componentId] !== true) {
+  if (componentId && roleAccess[componentId] !== true) {
     return <Navigate to="/" replace />;
   }
   return children;
