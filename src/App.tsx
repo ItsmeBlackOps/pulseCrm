@@ -21,6 +21,7 @@ import AddContact from './pages/AddContact';
 import Profile from './pages/Profile';
 import RoleAccess from './pages/RoleAccess';
 import UserManagement from './pages/UserManagement';
+import CreateUserCard from './pages/CreateUserCard';
 
 // Authentication pages
 import SignIn from './pages/auth/SignIn';
@@ -58,7 +59,6 @@ import ComponentToast from './pages/components/Toast';
 import ComponentTooltips from './pages/components/Tooltips';
 import ComponentTypedText from './pages/components/TypedText';
 import ComponentChatWidget from './pages/components/ChatWidget';
-import CreateUserCard from './pages/components/CreateUserCard';
 function SuperAdminOnly({ children }: { children: JSX.Element }) {
   const { user } = useAuth();
   if (user?.roleid !== 1) {
