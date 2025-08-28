@@ -95,7 +95,7 @@ export default function UserManagement() {
     const payload = {
       name: form.name?.trim(),
       email: form.email?.trim(),
-      password: form.password, // keep as-is if backend needs it here
+      password: form.password, // keep as-is if backend needs it here {canCreateUser && }
       roleid,
       managerid,
       departmentid,
@@ -135,15 +135,14 @@ export default function UserManagement() {
       toast({ title: data.message || 'Error updating password', variant: 'destructive' });
     }
   };
-
+// {canCreateUser && }
   return (
     <DashboardLayout>
       <div className="relative min-h-[200px]">
         {loading && <LoadingOverlay />}
         {!loading && (
           <div className="space-y-6">
-            <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-            // {canCreateUser && }
+            <h1 className="text-3xl font-bold tracking-tight">User Management</h1> 
 
             <Card>
               <CardHeader>
