@@ -212,6 +212,8 @@ export default function LeadDetails() {
     const { name, value } = e.target;
     if (name === "firstname" || name === "lastname") {
       setForm({ ...form, [name]: capitalize(value) });
+    } else if (name === "email") {
+      setForm({ ...form, email: value.toLowerCase() });
     } else if (name === "phone") {
       setForm({ ...form, phone: formatPhone(value) });
     } else if (name === "legalnamessn") {
@@ -254,10 +256,16 @@ export default function LeadDetails() {
       if (
         existing.some(
           (l) =>
-            (form.email && l.email?.toLowerCase() === form.email.toLowerCase()) ||
+            (form.email &&
+              l.email?.toLowerCase() === form.email.toLowerCase()) ||
             (form.phone && l.phone === form.phone) ||
-            (form.firstname && form.lastname && l.firstname?.toLowerCase() === form.firstname.toLowerCase() && l.lastname?.toLowerCase() === form.lastname.toLowerCase()) ||
-            (form.legalnamessn && l.legalnamessn?.toLowerCase() === form.legalnamessn.toLowerCase()) ||
+            (form.firstname &&
+              form.lastname &&
+              l.firstname?.toLowerCase() === form.firstname.toLowerCase() &&
+              l.lastname?.toLowerCase() === form.lastname.toLowerCase()) ||
+            (form.legalnamessn &&
+              l.legalnamessn?.toLowerCase() ===
+                form.legalnamessn.toLowerCase()) ||
             (form.last4ssn && l.last4ssn === form.last4ssn)
         )
       ) {
@@ -613,5 +621,3 @@ export default function LeadDetails() {
     </DashboardLayout>
   );
 }
-
-
