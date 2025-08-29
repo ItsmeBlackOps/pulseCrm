@@ -21,6 +21,7 @@ import { differenceInDays } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useDebounce } from '@/hooks/useDebounce';
 import { useNotifications } from '@/hooks/useNotifications';
 
 const visaStatusMap: Record<number, string> = {
@@ -77,8 +78,9 @@ const Leads = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [userMap, setUserMap] = useState<Record<string, string>>({});
-  const [currentPage, setCurrentPage] = useState(1);
+  const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const debouncedSearch = useDebounce(searchTerm, 450);
 
   // Sheet state
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -87,33 +89,44 @@ const Leads = () => {
   const [form, setForm] = useState<Partial<Lead>>({});
   const [saving, setSaving] = useState(false);
 
-  const leadsPerPage = 10;
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-  // Fetch leads + assignable users
+  // Fetch leads + assignable users (paginated)
   useEffect(() => {
-    setLoading(true);
-    const uid = user?.userid ?? '';
-    Promise.all([
-      fetchWithAuth(`${API_BASE_URL}/assignable-users?userId=${uid}`)
-        .then((res) => res.json())
-        .then((data: { userid: number; name: string }[]) => {
-          const map: Record<string, string> = {};
-          if (user) map[String(user.userid)] = user.name;
-          data.forEach((u) => {
-            map[String(u.userid)] = u.name;
-          });
-          setUserMap(map);
-        }),
-      fetchWithAuth(`${API_BASE_URL}/crm-leads?userId=${uid}`)
-        .then((res) => res.json())
-        .then((data: Lead[]) => setLeads(data)),
-    ]).finally(() => setLoading(false));
-  }, [user, fetchWithAuth, API_BASE_URL]);
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [usersRes, leadsRes] = await Promise.all([
+          fetchWithAuth(`${API_BASE_URL}/assignable-users`),
+          fetchWithAuth(`${API_BASE_URL}/crm-leads?take=50${debouncedSearch ? `&q=${encodeURIComponent(debouncedSearch)}` : ''}`),
+        ]);
+        const usersData = await usersRes.json();
+        const map: Record<string, string> = {};
+        if (user) map[String(user.userid)] = user.name;
+        (usersData || []).forEach((u: { userid: number; name: string }) => {
+          map[String(u.userid)] = u.name;
+        });
+        setUserMap(map);
+        const leadsData = await leadsRes.json();
+        const items: Lead[] = Array.isArray(leadsData) ? leadsData : (leadsData.items || []);
+        setLeads(items);
+        setNextCursor(leadsData.nextCursor ?? null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [user, fetchWithAuth, API_BASE_URL, debouncedSearch]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, leads]);
+  const loadMore = async () => {
+    if (!nextCursor) return;
+    const res = await fetchWithAuth(`${API_BASE_URL}/crm-leads?take=50&cursor=${nextCursor}${searchTerm ? `&q=${encodeURIComponent(searchTerm)}` : ''}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const items: Lead[] = data.items || [];
+    setLeads(prev => [...prev, ...items]);
+    setNextCursor(data.nextCursor ?? null);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -126,41 +139,7 @@ const Leads = () => {
     }
   };
 
-  // Filter logic
-  const filteredLeads = leads.filter((lead) => {
-    const term = searchTerm.toLowerCase().trim();
-
-    const matchList = (arr?: any[]) =>
-      !!arr?.some((item) => String(item).toLowerCase().includes(term));
-
-    const match = (value?: string) =>
-      !!value && value.toLowerCase().includes(term);
-
-    const dateMatch = (iso?: string) =>
-      !!iso && new Date(iso).toLocaleDateString().includes(term);
-
-    return (
-      match(lead.firstname) ||
-      match(lead.lastname) ||
-      match(lead.email) ||
-      match(lead.company) ||
-      match(lead.status) ||
-      match(lead.source) ||
-      match(visaStatusMap[lead.visastatusid ?? 0]) ||
-      match(userMap[lead.assignedto ?? '']) ||
-      dateMatch(lead.createdat) ||
-      matchList(lead.checklist) ||
-      match(lead.legalName) ||
-      !!lead.ssnLast4?.includes(term) ||
-      match(lead.notes)
-    );
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filteredLeads.length / leadsPerPage));
-  const paginatedLeads = filteredLeads.slice(
-    (currentPage - 1) * leadsPerPage,
-    currentPage * leadsPerPage
-  );
+  // Server-side search/pagination now; render current list
 
   const totalLeads = leads.length;
   const qualifiedLeads = leads.filter((lead) => lead.status === 'qualified').length;
@@ -218,8 +197,8 @@ const Leads = () => {
       const value =
         key === 'visastatusid'
           ? (e.target.value ? Number(e.target.value) : undefined)
-          : (e.target.value as any);
-      setForm((prev) => ({ ...prev, [key]: value }));
+          : (e.target.value as unknown as Partial<Lead>[K]);
+      setForm((prev) => ({ ...(prev as Partial<Lead>), [key]: value } as Partial<Lead>));
     };
 
   const handleSave = async () => {
@@ -238,7 +217,7 @@ const Leads = () => {
       } else if (res.ok) {
         updated = await res.json();
       } else {
-        const err = await res.json().catch(() => ({}));
+        const err = await res.json().catch(() => ({} as { message?: string }));
         throw new Error(err.message || 'Failed to update lead');
       }
 
@@ -251,8 +230,9 @@ const Leads = () => {
       toast({ title: 'Lead updated' });
       addNotification(`${user?.name || 'User'} updated lead ${form.firstname} ${form.lastname} for ${form.company}`);
       setMode('view'); // return to read-only in the same sheet
-    } catch (e: any) {
-      toast({ title: e.message || 'Error updating lead', variant: 'destructive' });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error updating lead';
+      toast({ title: msg, variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -268,9 +248,8 @@ const Leads = () => {
   return (
     <DashboardLayout>
       <div className="relative min-h-[200px]">
-        {loading && <LoadingOverlay />}
-        {!loading && (
-          <div className="space-y-6">
+        {loading && leads.length === 0 && <LoadingOverlay />}
+        <div className="space-y-6">
             <div className="flex justify-between items-center">
               <div>
                 <h1 className="text-3xl font-bold tracking-tight">Leads</h1>
@@ -345,8 +324,11 @@ const Leads = () => {
               </CardHeader>
 
               <CardContent>
+                {loading && leads.length > 0 && (
+                  <div className="px-4 py-2 text-sm text-muted-foreground">Updating…</div>
+                )}
                 <div className="space-y-4">
-                  {paginatedLeads.map((lead) => (
+                  {leads.map((lead) => (
                     <div key={lead.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center justify-between gap-2">
@@ -412,24 +394,15 @@ const Leads = () => {
                     </div>
                   ))}
 
-                  <div className="flex justify-between items-center mt-4">
-                    <Button variant="outline" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>
-                      Prev
-                    </Button>
-                    <span className="text-sm">Page {currentPage} of {totalPages}</span>
-                    <Button
-                      variant="outline"
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
+                  {nextCursor && (
+                    <div className="flex justify-center mt-4">
+                      <Button variant="outline" onClick={loadMore}>Load more</Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           </div>
-        )}
       </div>
 
       {/* VIEW / EDIT Sheet */}

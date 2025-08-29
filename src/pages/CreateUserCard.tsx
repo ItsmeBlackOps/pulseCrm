@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,8 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
-type RoleName = 'superadmin' | 'admin' | 'manager' | 'lead' | 'agent';
-
 interface UserOption {
   userid: number;
   name: string;
@@ -16,29 +14,26 @@ interface UserOption {
   role: string; // or roleid if you have it; not required here
 }
 
-const roleIdMap: Record<RoleName, number> = {
-  superadmin: 1,
-  admin: 2,
-  manager: 3,
-  lead: 4,
-  agent: 5,
-};
+interface Role {
+  roleid: number;
+  name: string;
+  parentroleid: number | null;
+}
 
-const roleMap: Record<number, RoleName> = {
-  1: 'superadmin',
-  2: 'admin',
-  3: 'manager',
-  4: 'lead',
-  5: 'agent',
-};
+interface AssignableUser {
+  userid: number;
+  name: string;
+  managerid: number | null;
+}
 
 type CreateUserPayload = {
-  name: string | undefined;
-  email: string | undefined;
+  name: string;
+  email: string;
   password: string;
   roleid: number | null;
   managerid: number | null;
   departmentid: number | null;
+  status?: string;
 };
 
 type Props = {
@@ -63,57 +58,116 @@ export default function CreateUserCard({
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   const currentRoleId = user?.roleid ?? 0;
-  const currentRole = roleMap[currentRoleId];
+
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
+  const [managers, setManagers] = useState<AssignableUser[]>([]);
+  const [managersLoading, setManagersLoading] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     name: '',
     email: '',
-    role: '' as '' | string,
+    roleId: '' as '' | string,
     managerId: '' as '' | string, // stores userid as string
     departmentId: '' as '' | string,
     password: '',
     showPw: false,
   });
 
-  // If rolesFromApi is provided, filter to roles strictly below current role.
-  // Otherwise default to all role names derived from roleIdMap (still filtered).
-  const allowedRoles = useMemo(() => {
-    const base = (rolesFromApi?.length ? rolesFromApi : (Object.values(roleIdMap) as unknown as string[]))
-      .map(r => r.toLowerCase());
-    return base.filter((r) => (roleIdMap[r as RoleName] ?? Infinity) > currentRoleId);
-  }, [rolesFromApi, currentRoleId]);
+  // Fetch canonical roles
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setRolesLoading(true);
+        const res = await fetchWithAuth(`${API_BASE_URL}/roles`);
+        if (!res.ok) throw new Error('Failed to load roles');
+        const data: Role[] = await res.json();
+        if (!cancelled) setRoles(data || []);
+      } catch (err: any) {
+        toast({ title: 'Error', description: err?.message ?? 'Failed to load roles', variant: 'destructive' });
+      } finally {
+        if (!cancelled) setRolesLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [API_BASE_URL, fetchWithAuth, toast]);
 
-  const canCreateUser = currentRoleId < roleIdMap.agent;
+  // Fetch assignable managers if not provided via props
+  useEffect(() => {
+    if (managerOptions && managerOptions.length) return; // use provided options
+    let cancelled = false;
+    (async () => {
+      try {
+        setManagersLoading(true);
+        const res = await fetchWithAuth(`${API_BASE_URL}/assignable-users`);
+        if (!res.ok) throw new Error('Failed to load managers');
+        const data: AssignableUser[] = await res.json();
+        if (!cancelled) setManagers(data || []);
+      } catch (err: any) {
+        toast({ title: 'Error', description: err?.message ?? 'Failed to load managers', variant: 'destructive' });
+      } finally {
+        if (!cancelled) setManagersLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [API_BASE_URL, fetchWithAuth, managerOptions, toast]);
+
+  // Compute allowed roles: strictly lower privilege (higher numeric roleid)
+  const allowedRoles = useMemo(() => {
+    const me = currentRoleId;
+    let base = roles;
+    if (rolesFromApi?.length) {
+      const allowedNames = new Set(rolesFromApi.map((r) => r.toLowerCase()));
+      base = roles.filter((r) => allowedNames.has(r.name.toLowerCase()));
+    }
+    const filtered = base.filter((r) => r.roleid > me);
+    return filtered.sort((a, b) => a.roleid - b.roleid);
+  }, [roles, rolesFromApi, currentRoleId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canCreateUser) {
-      toast({ title: 'Not allowed', description: 'You do not have permission to create users.', variant: 'destructive' });
-      return;
-    }
 
     // Basic client-side validation
     if (!form.name.trim() || !form.email.trim() || !form.password) {
       toast({ title: 'Missing fields', description: 'Name, Email and Password are required.', variant: 'destructive' });
       return;
     }
-    if (!form.role) {
+    if (!form.roleId) {
       toast({ title: 'Select a role', variant: 'destructive' });
       return;
     }
+    const selectedRoleId = Number(form.roleId);
+    if (!Number.isFinite(selectedRoleId)) {
+      toast({ title: 'Invalid role', description: 'Please select a valid role.', variant: 'destructive' });
+      return;
+    }
+    // Enforce precedence: can only create lower-privileged roles
+    if (selectedRoleId <= currentRoleId) {
+      toast({ title: 'Not allowed', description: 'You can only assign roles below your own.', variant: 'destructive' });
+      return;
+    }
+    // Manager requirement: required for all except super admin (roleid === 1)
+    const isSuperAdmin = currentRoleId === 1;
+    if (!isSuperAdmin && !form.managerId?.trim()) {
+      toast({ title: 'Select a manager', description: 'Manager is required for your role.', variant: 'destructive' });
+      return;
+    }
 
-    const roleid = roleIdMap[(form.role.toLowerCase() as RoleName)] ?? null;
+    const roleid = selectedRoleId || null;
     const managerid = form.managerId?.trim() ? Number(form.managerId) : null;
-    const departmentid = enableDepartment && form.departmentId?.trim() ? Number(form.departmentId) : null;
+    // Include department id if provided, regardless of field visibility
+    const departmentid = form.departmentId?.trim() ? Number(form.departmentId) : null;
 
     const payload: CreateUserPayload = {
-      name: form.name?.trim(),
-      email: form.email?.trim(),
+      name: form.name.trim(),
+      email: form.email.trim(),
       password: form.password,
       roleid,
       managerid,
       departmentid,
+      status: 'active',
     };
 
     try {
@@ -125,8 +179,15 @@ export default function CreateUserCard({
       });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || 'Error creating user');
+        let message = 'Error creating user';
+        try {
+          const data = await res.json();
+          if (data?.message) message = data.message;
+        } catch {}
+        if (res.status === 409) message = 'Email already exists';
+        if (res.status === 403) message = 'Not allowed to create this user';
+        if (res.status === 400) message = 'Invalid request';
+        throw new Error(message);
       }
 
       const data = await res.json();
@@ -137,7 +198,7 @@ export default function CreateUserCard({
       setForm({
         name: '',
         email: '',
-        role: '',
+        roleId: '',
         managerId: '',
         departmentId: '',
         password: '',
@@ -149,8 +210,6 @@ export default function CreateUserCard({
       setSubmitting(false);
     }
   };
-
-  if (!canCreateUser) return null;
 
   return (
     <Card>
@@ -186,19 +245,23 @@ export default function CreateUserCard({
             <div className="space-y-2">
               <Label htmlFor="cu-role">Role</Label>
               <Select
-                value={form.role}
-                onValueChange={(value) => setForm((f) => ({ ...f, role: value }))}
-                disabled={submitting}
+                value={form.roleId}
+                onValueChange={(value) => setForm((f) => ({ ...f, roleId: value }))}
+                disabled={submitting || rolesLoading}
               >
                 <SelectTrigger id="cu-role">
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  {allowedRoles.map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {r}
-                    </SelectItem>
-                  ))}
+                  {allowedRoles.length === 0 && !rolesLoading ? (
+                    <SelectItem disabled value="">No assignable roles</SelectItem>
+                  ) : (
+                    allowedRoles.map((r) => (
+                      <SelectItem key={r.roleid} value={String(r.roleid)}>
+                        {r.name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -208,13 +271,13 @@ export default function CreateUserCard({
               <Select
                 value={form.managerId}
                 onValueChange={(value) => setForm((f) => ({ ...f, managerId: value }))}
-                disabled={submitting}
+                disabled={submitting || managersLoading}
               >
                 <SelectTrigger id="cu-manager">
                   <SelectValue placeholder="Select manager (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(managerOptions ?? []).map((m) => (
+                  {((managerOptions && managerOptions.length) ? managerOptions : managers).map((m) => (
                     <SelectItem key={m.userid} value={String(m.userid)}>
                       {m.name}
                     </SelectItem>
@@ -252,6 +315,7 @@ export default function CreateUserCard({
                 <Button
                   type="button"
                   variant="outline"
+                  disabled={submitting}
                   onClick={() => setForm((f) => ({ ...f, showPw: !f.showPw }))}
                 >
                   {form.showPw ? 'Hide' : 'Show'}
