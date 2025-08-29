@@ -90,7 +90,8 @@ export default function CreateUserCard({
     email: "",
     roleId: "" as "" | string,
     managerId: "" as "" | string, // stores userid as string
-    departmentId: "" as "" | string,
+    // If department field is enabled, default to "1" per requirement
+    departmentId: (enableDepartment ? "1" : "") as "" | string,
     password: "",
     showPw: false,
   });
@@ -200,8 +201,12 @@ export default function CreateUserCard({
 
     const roleid = selectedRoleId || null;
     const managerid = form.managerId?.trim() ? Number(form.managerId) : null;
-    // Department comes from current user (not in form)
-    const departmentid = user?.departmentid ?? null;
+    // Default department is 1 when creating users; if a valid department is provided, use it
+    const departmentid = (() => {
+      const raw = form.departmentId?.trim();
+      const n = raw ? Number(raw) : NaN;
+      return Number.isFinite(n) && n > 0 ? n : 1;
+    })();
 
     const payload: CreateUserPayload = {
       name: form.name.trim(),
@@ -247,7 +252,7 @@ export default function CreateUserCard({
         email: "",
         roleId: "",
         managerId: "",
-        departmentId: "",
+        departmentId: enableDepartment ? "1" : "",
         password: "",
         showPw: false,
       });

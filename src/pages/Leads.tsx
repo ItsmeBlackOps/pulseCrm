@@ -102,8 +102,8 @@ interface Lead {
   source?: string;
   status: string;
   assignedto?: string;
-  createdat?: string;
-  updatedat?: string;
+  createdat?: Date;
+  updatedat?: Date;
   createdby?: number;
   visastatusid?: number;
   checklist?: ChecklistItem[];
@@ -195,10 +195,23 @@ const Leads = () => {
         }
         // Treat empty strings, null, undefined as "empty"
 
+        const toDate = (v?: unknown): Date | undefined => {
+          if (!v) return undefined;
+          if (v instanceof Date) return v;
+          const d = new Date(String(v));
+          return isNaN(d.getTime()) ? undefined : d;
+        };
+        const normalizeLead = (raw: any): Lead => ({
+          ...raw,
+          createdat: toDate(raw.createdat),
+          updatedat: toDate(raw.updatedat),
+        });
+
         const leadsData = await leadsRes.json();
-        const items: Lead[] = Array.isArray(leadsData)
+        const rawItems: any[] = Array.isArray(leadsData)
           ? leadsData
           : leadsData.items || [];
+        const items: Lead[] = rawItems.map(normalizeLead);
         const initialNext: number | null = Array.isArray(leadsData)
           ? null
           : leadsData.nextCursor ?? null;
@@ -208,8 +221,8 @@ const Leads = () => {
           const match = (v?: string) => !!v && v.toLowerCase().includes(term);
           const matchList = (arr?: unknown[]) =>
             !!arr?.some((it) => String(it).toLowerCase().includes(term));
-          const dateMatch = (iso?: string) =>
-            !!iso && new Date(iso).toLocaleDateString().includes(term);
+          const dateMatch = (d?: string | Date) =>
+            !!d && (d instanceof Date ? d : new Date(d)).toLocaleDateString().includes(term);
           const matches = (l: Lead) =>
             match(l.firstname) ||
             match(l.lastname) ||
@@ -252,7 +265,7 @@ const Leads = () => {
               return;
             }
             const data = await res.json();
-            const list: Lead[] = data.items || [];
+            const list: Lead[] = (data.items || []).map(normalizeLead);
             const next: number | null = data.nextCursor ?? null;
             const filtered = list
               .filter(matches)
@@ -290,14 +303,25 @@ const Leads = () => {
     );
     if (!res.ok) return;
     const data = await res.json();
-    const items: Lead[] = data.items || [];
+    const toDate = (v?: unknown): Date | undefined => {
+      if (!v) return undefined;
+      if (v instanceof Date) return v;
+      const d = new Date(String(v));
+      return isNaN(d.getTime()) ? undefined : d;
+    };
+    const normalizeLead = (raw: any): Lead => ({
+      ...raw,
+      createdat: toDate(raw.createdat),
+      updatedat: toDate(raw.updatedat),
+    });
+    const items: Lead[] = (data.items || []).map(normalizeLead);
     if (clientSearchMode && searchTerm.trim()) {
       const term = searchTerm.toLowerCase().trim();
       const match = (v?: string) => !!v && v.toLowerCase().includes(term);
       const matchList = (arr?: unknown[]) =>
         !!arr?.some((it) => String(it).toLowerCase().includes(term));
-      const dateMatch = (iso?: string) =>
-        !!iso && new Date(iso).toLocaleDateString().includes(term);
+      const dateMatch = (d?: string | Date) =>
+        !!d && (d instanceof Date ? d : new Date(d)).toLocaleDateString().includes(term);
       const filtered = items.filter(
         (l) =>
           match(l.firstname) ||
@@ -335,17 +359,25 @@ const Leads = () => {
       try {
         let res = await fetchWithAuth(`${API_BASE_URL}/crm-leads?take=${take}`);
         if (!res.ok) throw new Error("failed");
-        const data: { items?: Lead[]; nextCursor?: unknown } | Lead[] =
+        const data: { items?: any[]; nextCursor?: unknown } | any[] =
           await res.json();
-        const items: Lead[] = Array.isArray(data) ? data : data.items || [];
+        const toDate = (v?: unknown): Date | undefined => {
+          if (!v) return undefined;
+          if (v instanceof Date) return v;
+          const d = new Date(String(v));
+          return isNaN(d.getTime()) ? undefined : d;
+        };
+        const normalizeLead = (raw: any): Lead => ({
+          ...raw,
+          createdat: toDate(raw.createdat),
+          updatedat: toDate(raw.updatedat),
+        });
+        const items: Lead[] = (Array.isArray(data) ? data : data.items || []).map(normalizeLead);
         for (const l of items) {
           total += 1;
           if (l.status === "qualified") qualified += 1;
           if (l.status === "converted") converted += 1;
-          if (
-            l.createdat &&
-            differenceInDays(new Date(), new Date(l.createdat)) <= 7
-          )
+          if (l.createdat && differenceInDays(new Date(), l.createdat) <= 7)
             newCnt += 1;
         }
         if (v === summaryScanVersion.current) {
@@ -369,18 +401,15 @@ const Leads = () => {
           );
           if (!res.ok) break;
           const data2 = (await res.json()) as {
-            items?: Lead[];
+            items?: any[];
             nextCursor?: unknown;
           };
-          const items2: Lead[] = data2.items || [];
+          const items2: Lead[] = (data2.items || []).map(normalizeLead);
           for (const l of items2) {
             total += 1;
             if (l.status === "qualified") qualified += 1;
             if (l.status === "converted") converted += 1;
-            if (
-              l.createdat &&
-              differenceInDays(new Date(), new Date(l.createdat)) <= 7
-            )
+            if (l.createdat && differenceInDays(new Date(), l.createdat) <= 7)
               newCnt += 1;
           }
           cursor =
@@ -429,7 +458,7 @@ const Leads = () => {
   ).length;
   const newLeads = leads.filter(
     (l) =>
-      l.createdat && differenceInDays(new Date(), new Date(l.createdat)) <= 7
+      l.createdat && differenceInDays(new Date(), l.createdat) <= 7
   ).length;
   const converted = leads.filter((l) => l.status === "converted").length;
   const conversionRate = totalLeads
@@ -688,10 +717,21 @@ const Leads = () => {
         updated = {
           ...activeLead,
           ...(patch as Lead),
-          updatedat: new Date().toISOString(),
+          updatedat: new Date(),
         };
       } else if (res.ok) {
-        updated = await res.json();
+        const raw = await res.json();
+        const toDate = (v?: unknown): Date | undefined => {
+          if (!v) return undefined;
+          if (v instanceof Date) return v;
+          const d = new Date(String(v));
+          return isNaN(d.getTime()) ? undefined : d;
+        };
+        updated = {
+          ...(raw || {}),
+          createdat: toDate(raw?.createdat) ?? activeLead.createdat,
+          updatedat: toDate(raw?.updatedat) ?? new Date(),
+        } as Lead;
       } else {
         const err = await res.json().catch(() => ({} as { message?: string }));
         throw new Error(err.message || "Failed to update lead");
@@ -870,9 +910,7 @@ const Leads = () => {
                         {(lead.createdby && userMap[lead.createdby]) || ""}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {lead.createdat
-                          ? new Date(lead.createdat).toLocaleDateString()
-                          : ""}
+                        {lead.createdat ? lead.createdat.toLocaleDateString() : ""}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -1017,13 +1055,13 @@ const Leads = () => {
                         {lead.createdat && (
                           <span>
                             Created:{" "}
-                            {new Date(lead.createdat).toLocaleDateString()}
+                            {lead.createdat.toLocaleDateString()}
                           </span>
                         )}
                         {lead.updatedat && (
                           <span>
                             Updated:{" "}
-                            {new Date(lead.updatedat).toLocaleDateString()}
+                            {lead.updatedat.toLocaleDateString()}
                           </span>
                         )}
                       </div>
@@ -1115,19 +1153,11 @@ const Leads = () => {
                     />
                     <ViewField
                       label="Created"
-                      value={
-                        activeLead.createdat
-                          ? new Date(activeLead.createdat).toLocaleString()
-                          : "-"
-                      }
+                      value={activeLead.createdat?.toLocaleString() ?? "-"}
                     />
                     <ViewField
                       label="Updated"
-                      value={
-                        activeLead.updatedat
-                          ? new Date(activeLead.updatedat).toLocaleString()
-                          : "-"
-                      }
+                      value={activeLead.updatedat?.toLocaleString() ?? "-"}
                     />
                     <div>
                       <p className="text-xs text-muted-foreground">Checklist</p>
