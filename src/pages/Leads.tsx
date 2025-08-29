@@ -220,7 +220,7 @@ const Leads = () => {
           const term = debouncedSearch.toLowerCase().trim();
           const match = (v?: string) => !!v && v.toLowerCase().includes(term);
           const matchList = (arr?: unknown[]) =>
-            !!arr?.some((it) => String(it).toLowerCase().includes(term));
+            Array.isArray(arr) && arr.some((it) => String(it).toLowerCase().includes(term));
           const dateMatch = (d?: string | Date) =>
             !!d && (d instanceof Date ? d : new Date(d)).toLocaleDateString().includes(term);
           const matches = (l: Lead) =>
@@ -319,7 +319,7 @@ const Leads = () => {
       const term = searchTerm.toLowerCase().trim();
       const match = (v?: string) => !!v && v.toLowerCase().includes(term);
       const matchList = (arr?: unknown[]) =>
-        !!arr?.some((it) => String(it).toLowerCase().includes(term));
+        Array.isArray(arr) && arr.some((it) => String(it).toLowerCase().includes(term));
       const dateMatch = (d?: string | Date) =>
         !!d && (d instanceof Date ? d : new Date(d)).toLocaleDateString().includes(term);
       const filtered = items.filter(

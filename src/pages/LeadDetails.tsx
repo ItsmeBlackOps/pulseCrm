@@ -250,9 +250,13 @@ export default function LeadDetails() {
 
     if (!editMode) {
       const uid = user?.userid ?? "";
-      const existing: LeadForm[] = await fetchWithAuth(
+      const resp = await fetchWithAuth(
         `${API_BASE_URL}/crm-leads?userId=${uid}`
-      ).then((r) => r.json());
+      );
+      const data = await resp.json();
+      const existing: LeadForm[] = Array.isArray(data)
+        ? data
+        : (data?.items as LeadForm[]) || [];
       if (
         existing.some(
           (l) =>
