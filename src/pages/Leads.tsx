@@ -634,12 +634,52 @@ const Leads = () => {
           return;
         }
       }
+      // Build a minimal PATCH payload with only changed, non-empty values
+      const keysToUpdate: (keyof Lead)[] = [
+        "firstname",
+        "lastname",
+        "email",
+        "phone",
+        "company",
+        "source",
+        "status",
+        "assignedto",
+        "visastatusid",
+        "checklist",
+        "legalnamessn",
+        "last4ssn",
+        "notes",
+      ];
+
+      const patch: Partial<Lead> = {};
+      for (const key of keysToUpdate) {
+        const nextVal = (form as any)[key];
+        if (nextVal === undefined || nextVal === null) continue; // do not send null/undefined
+        if (typeof nextVal === "string" && nextVal.trim() === "") continue; // avoid blanking
+        const prevVal = (activeLead as any)[key];
+        // Treat undefined and [] as equivalent for checklist
+        const changed =
+          key === "checklist"
+            ? JSON.stringify(Array.isArray(nextVal) ? nextVal : []) !==
+              JSON.stringify(Array.isArray(prevVal) ? prevVal : [])
+            : typeof nextVal === "object"
+            ? JSON.stringify(nextVal) !== JSON.stringify(prevVal)
+            : nextVal !== prevVal;
+        if (changed) (patch as any)[key] = nextVal;
+      }
+
+      if (Object.keys(patch).length === 0) {
+        toast({ title: "No changes to save" });
+        setSaving(false);
+        return;
+      }
+
       const res = await fetchWithAuth(
         `${API_BASE_URL}/crm-leads/${activeLead.id}`,
         {
-          method: "PUT", // change to PATCH if your API expects
+          method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify(patch),
         }
       );
 
@@ -647,7 +687,7 @@ const Leads = () => {
       if (res.status === 204) {
         updated = {
           ...activeLead,
-          ...(form as Lead),
+          ...(patch as Lead),
           updatedat: new Date().toISOString(),
         };
       } else if (res.ok) {

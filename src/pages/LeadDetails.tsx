@@ -282,27 +282,82 @@ export default function LeadDetails() {
       return;
     }
 
-    const payload = {
-      ...form,
-      company: form.company,
-      createdat: form.createdat || new Date().toISOString(),
-      updatedat: new Date().toISOString(),
-      lastcontactedat: null,
-      expectedrevenue: null,
-      createdby: form.createdby || user?.userid,
-      othersource: form.otherSource || undefined,
-    };
-
-    const method = editMode ? "PUT" : "POST";
+    // Build body + method based on mode. For edit, send only changed, non-empty fields.
+    let method: "POST" | "PATCH" = editMode ? "PATCH" : "POST";
     const url = editMode
       ? `${API_BASE_URL}/crm-leads/${id}`
       : `${API_BASE_URL}/crm-leads`;
+
+    let body: Record<string, unknown>;
+    if (editMode) {
+      const keysToUpdate: (keyof LeadForm)[] = [
+        "firstname",
+        "lastname",
+        "email",
+        "phone",
+        "company",
+        "status",
+        "source",
+        "notes",
+        "assignedto",
+        "visastatusid",
+        "checklist",
+        "legalnamessn",
+        "last4ssn",
+        "otherSource",
+      ];
+      const patch: Record<string, unknown> = {};
+      for (const key of keysToUpdate) {
+        const nextVal = (form as Record<string, unknown>)[key];
+        if (nextVal === null || nextVal === undefined) continue; // don't send null/undefined
+        if (typeof nextVal === "string" && nextVal.trim() === "") continue; // don't blank out
+        const prevVal = (originalForm as Record<string, unknown> | null)?.[key];
+        const changed =
+          key === "checklist"
+            ? JSON.stringify(Array.isArray(nextVal) ? nextVal : []) !==
+              JSON.stringify(Array.isArray(prevVal) ? prevVal : [])
+            : typeof nextVal === "object"
+            ? JSON.stringify(nextVal) !== JSON.stringify(prevVal)
+            : nextVal !== prevVal;
+        if (changed) {
+          // Normalize key naming for server schema
+          if (key === "otherSource") {
+            patch["othersource"] = nextVal || undefined;
+          } else {
+            patch[key as string] = nextVal;
+          }
+        }
+      }
+      if (Object.keys(patch).length === 0) {
+        toast({ title: "No changes to save" });
+        return;
+      }
+      body = patch;
+    } else {
+      body = {
+        ...form,
+        company: form.company,
+        createdat: form.createdat || new Date().toISOString(),
+        updatedat: new Date().toISOString(),
+        lastcontactedat: null,
+        expectedrevenue: null,
+        createdby: form.createdby || user?.userid,
+        othersource: form.otherSource || undefined,
+      };
+    }
+
     const res = await fetchWithAuth(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
     });
-    const data = await res.json();
+
+    let data: any = null;
+    if (res.status !== 204) {
+      try {
+        data = await res.json();
+      } catch {}
+    }
     if (res.ok) {
       let notificationMsg = "";
       if (editMode) {
