@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus } from 'lucide-react';
+import { Plus, MoreHorizontal, Trash2 } from 'lucide-react';
 import { LoadingOverlay } from '@/components/ui/loading-overlay';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { Link } from 'react-router-dom';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface User {
   userid: number;
@@ -103,6 +104,23 @@ export default function UserManagement() {
       setNextCursor(data.nextCursor ?? null);
     } catch (e) {
       toast({ title: 'Load more failed', variant: 'destructive' });
+    }
+  };
+
+  // Delete a user (same UX as Leads delete)
+  const deleteUser = async (u: User) => {
+    if (!confirm('Delete this user?')) return;
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL}/users/${u.userid}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || 'Error deleting user');
+      }
+      setUsers(prev => prev.filter(x => x.userid !== u.userid));
+      toast({ title: 'User deleted' });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error deleting user';
+      toast({ title: msg, variant: 'destructive' });
     }
   };
 
@@ -218,7 +236,25 @@ export default function UserManagement() {
                         <TableCell className="capitalize">{u.status ?? ''}</TableCell>
                         <TableCell>{u.lastlogin ? new Date(u.lastlogin).toLocaleString() : ''}</TableCell>
                         <TableCell className="text-right">
-                          <Button size="sm" variant="outline" onClick={() => startEdit(u)}>Edit</Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => startEdit(u)}>
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => deleteUser(u)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))}
