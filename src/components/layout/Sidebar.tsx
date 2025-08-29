@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useAuth } from '@/hooks/useAuth';
@@ -56,11 +56,16 @@ function NavItem({ icon: Icon, label, href, componentId, isCollapsed, badge }: N
 
 export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
   const isMobile = useIsMobile();
+  const { logout } = useAuth();
+  const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
-
+  const handleLogout = () => {
+    logout();
+    navigate('/auth/signin');
+  };
   const handleToggleCollapse = () => {
     if (!isMobile) {
       setIsCollapsed(!isCollapsed);
@@ -173,6 +178,7 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
             <Button
               variant="ghost"
               className={cn('flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all', 'justify-start text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-accent')}
+              onClick={handleLogout}
             >
               <LogOut className="h-5 w-5 flex-shrink-0" />
               {!isCollapsed && <span>Logout</span>}
