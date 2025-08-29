@@ -169,8 +169,8 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
         {/* Fixed Footer */}
         <div className="border-t border-border p-2 flex-shrink-0">
           <nav className="grid gap-1">
-            <NavItem componentId="settings" icon={KeyRound} label="Role Access" href="/role-access" isCollapsed={isCollapsed} />
-            <NavItem componentId="settings" icon={UserCheck} label="User Management" href="/user-management" isCollapsed={isCollapsed} />
+            <NavItem componentId="roleaccess" icon={KeyRound} label="Role Access" href="/role-access" isCollapsed={isCollapsed} />
+            <NavItem componentId="usermanagement" icon={UserCheck} label="User Management" href="/user-management" isCollapsed={isCollapsed} />
             <NavItem componentId="settings" icon={Settings} label="Settings" href="/settings" isCollapsed={isCollapsed} />
             {user?.roleid === 1 && (
               <NavItem componentId="support" icon={LifeBuoy} label="Support" href="/support" isCollapsed={isCollapsed} />
