@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LoadingOverlay } from '@/components/ui/loading-overlay';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,13 +16,15 @@ import {
   SheetFooter,
   SheetClose,
 } from '@/components/ui/sheet';
-import { Search, Plus, Filter, Target, TrendingUp, Users, Trash2 } from 'lucide-react';
+import { Search, Plus, Filter, Target, TrendingUp, Users,Phone, Mail, Trash2, MoreHorizontal, Eye, Edit } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { differenceInDays } from 'date-fns';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { useDebounce } from '@/hooks/useDebounce';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useDebounce } from '@/hooks/useDebounce';
 
 const visaStatusMap: Record<number, string> = {
   1: 'H1B',
@@ -33,6 +35,13 @@ const visaStatusMap: Record<number, string> = {
   6: 'USC',
   7: 'H4',
   8: 'GC-EAD',
+};
+
+const capitalizeWords = (value?: string) => {
+  if (!value) return '';
+  return value
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 };
 
 interface Lead {
@@ -72,6 +81,7 @@ const ViewField = ({
 
 const Leads = () => {
   const { fetchWithAuth, user } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { addNotification } = useNotifications();
 
@@ -80,7 +90,12 @@ const Leads = () => {
   const [userMap, setUserMap] = useState<Record<string, string>>({});
   const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const debouncedSearch = useDebounce(searchTerm, 450);
+  const [statuses, setStatuses] = useState<string[]>([]);
+  const [summaryTotal, setSummaryTotal] = useState(0);
+  const [summaryQualified, setSummaryQualified] = useState(0);
+  const [summaryConverted, setSummaryConverted] = useState(0);
+  const [summaryNew, setSummaryNew] = useState(0);
+  const summaryScanVersion = useRef(0);
 
   // Sheet state
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -90,15 +105,20 @@ const Leads = () => {
   const [saving, setSaving] = useState(false);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+  const clientSearchMode = (import.meta.env.VITE_LEADS_CLIENT_SEARCH as string) === 'true';
+  const debouncedSearch = useDebounce(searchTerm, 450);
+  const [scanRunning, setScanRunning] = useState(false);
+  const scanVersion = useRef(0);
 
-  // Fetch leads + assignable users (paginated)
+  // Fetch leads + assignable users (paginated). Supports client-side progressive search when enabled.
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const [usersRes, leadsRes] = await Promise.all([
+        const [usersRes, leadsRes, colsRes] = await Promise.all([
           fetchWithAuth(`${API_BASE_URL}/assignable-users`),
-          fetchWithAuth(`${API_BASE_URL}/crm-leads?take=50${debouncedSearch ? `&q=${encodeURIComponent(debouncedSearch)}` : ''}`),
+          fetchWithAuth(`${API_BASE_URL}/crm-leads?take=50${clientSearchMode ? '' : (debouncedSearch ? `&q=${encodeURIComponent(debouncedSearch)}` : '')}`),
+          fetchWithAuth(`${API_BASE_URL}/columns`),
         ]);
         const usersData = await usersRes.json();
         const map: Record<string, string> = {};
@@ -107,26 +127,171 @@ const Leads = () => {
           map[String(u.userid)] = u.name;
         });
         setUserMap(map);
+
+        // statuses from columns (same as LeadDetails)
+        try {
+          const cols: { title: string }[] = await colsRes.json();
+          setStatuses((cols || []).map(c => c.title.toLowerCase()));
+        } catch (e) {
+          // ignore columns fetch failure; fallback statuses will be used
+        }
+
         const leadsData = await leadsRes.json();
         const items: Lead[] = Array.isArray(leadsData) ? leadsData : (leadsData.items || []);
-        setLeads(items);
-        setNextCursor(leadsData.nextCursor ?? null);
+        const initialNext: number | null = Array.isArray(leadsData) ? null : (leadsData.nextCursor ?? null);
+
+        if (clientSearchMode && debouncedSearch.trim()) {
+          const term = debouncedSearch.toLowerCase().trim();
+          const match = (v?: string) => !!v && v.toLowerCase().includes(term);
+          const matchList = (arr?: unknown[]) => !!arr?.some((it) => String(it).toLowerCase().includes(term));
+          const dateMatch = (iso?: string) => !!iso && new Date(iso).toLocaleDateString().includes(term);
+          const matches = (l: Lead) => (
+            match(l.firstname) ||
+            match(l.lastname) ||
+            match(l.email) ||
+            match(l.company) ||
+            match(l.status) ||
+            match(l.source) ||
+            match(visaStatusMap[l.visastatusid ?? 0]) ||
+            match(map[l.assignedto ?? '']) ||
+            dateMatch(l.createdat) ||
+            matchList(l.checklist) ||
+            match(l.legalName) ||
+            match(l.ssnLast4) ||
+            match(l.notes)
+          );
+
+          const first = items.filter(matches);
+          setLeads(first);
+          setNextCursor(initialNext);
+
+          // Progressive scan across remaining pages
+          scanVersion.current += 1;
+          const version = scanVersion.current;
+          setScanRunning(true);
+          const seen = new Set<number>(first.map((i) => i.id));
+
+          const scan = async (cursor: number | null, pages = 0): Promise<void> => {
+            if (version !== scanVersion.current) return; // cancelled
+            if (!cursor || pages > 100) { setScanRunning(false); return; }
+            const res = await fetchWithAuth(`${API_BASE_URL}/crm-leads?take=50&cursor=${cursor}`);
+            if (!res.ok) { setScanRunning(false); return; }
+            const data = await res.json();
+            const list: Lead[] = data.items || [];
+            const next: number | null = data.nextCursor ?? null;
+            const filtered = list.filter(matches).filter((l) => !seen.has(l.id));
+            filtered.forEach((l) => seen.add(l.id));
+            if (version !== scanVersion.current) return;
+            if (filtered.length) setLeads((prev) => [...prev, ...filtered]);
+            setNextCursor(next);
+            await scan(next, pages + 1);
+          };
+          void scan(initialNext);
+        } else {
+          // Server-side search or no term
+          setLeads(items);
+          setNextCursor(initialNext);
+          setScanRunning(false);
+        }
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [user, fetchWithAuth, API_BASE_URL, debouncedSearch]);
+  }, [user, fetchWithAuth, API_BASE_URL, clientSearchMode, debouncedSearch]);
 
   const loadMore = async () => {
     if (!nextCursor) return;
-    const res = await fetchWithAuth(`${API_BASE_URL}/crm-leads?take=50&cursor=${nextCursor}${searchTerm ? `&q=${encodeURIComponent(searchTerm)}` : ''}`);
+    const res = await fetchWithAuth(`${API_BASE_URL}/crm-leads?take=50&cursor=${nextCursor}${clientSearchMode ? '' : (searchTerm ? `&q=${encodeURIComponent(searchTerm)}` : '')}`);
     if (!res.ok) return;
     const data = await res.json();
     const items: Lead[] = data.items || [];
-    setLeads(prev => [...prev, ...items]);
+    if (clientSearchMode && searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
+      const match = (v?: string) => !!v && v.toLowerCase().includes(term);
+      const matchList = (arr?: unknown[]) => !!arr?.some((it) => String(it).toLowerCase().includes(term));
+      const dateMatch = (iso?: string) => !!iso && new Date(iso).toLocaleDateString().includes(term);
+      const filtered = items.filter((l) => (
+        match(l.firstname) ||
+        match(l.lastname) ||
+        match(l.email) ||
+        match(l.company) ||
+        match(l.status) ||
+        match(l.source) ||
+        match(visaStatusMap[l.visastatusid ?? 0]) ||
+        match(userMap[l.assignedto ?? '']) ||
+        dateMatch(l.createdat) ||
+        matchList(l.checklist) ||
+        match(l.legalName) ||
+        match(l.ssnLast4) ||
+        match(l.notes)
+      ));
+      setLeads((prev) => [...prev, ...filtered]);
+    } else {
+      setLeads(prev => [...prev, ...items]);
+    }
     setNextCursor(data.nextCursor ?? null);
   };
+
+  // Background scanner for summary cards (counts entire dataset, RBAC-scoped)
+  useEffect(() => {
+    const run = async () => {
+      summaryScanVersion.current += 1;
+      const v = summaryScanVersion.current;
+      let total = 0;
+      let qualified = 0;
+      let converted = 0;
+      let newCnt = 0;
+      let cursor: number | null = null;
+      const take = 100;
+      try {
+        let res = await fetchWithAuth(`${API_BASE_URL}/crm-leads?take=${take}`);
+        if (!res.ok) throw new Error('failed');
+        const data: { items?: Lead[]; nextCursor?: unknown } | Lead[] = await res.json();
+        const items: Lead[] = Array.isArray(data) ? data : (data.items || []);
+        for (const l of items) {
+          total += 1;
+          if (l.status === 'qualified') qualified += 1;
+          if (l.status === 'converted') converted += 1;
+          if (l.createdat && differenceInDays(new Date(), new Date(l.createdat)) <= 7) newCnt += 1;
+        }
+        if (v === summaryScanVersion.current) {
+          setSummaryTotal(total);
+          setSummaryQualified(qualified);
+          setSummaryConverted(converted);
+          setSummaryNew(newCnt);
+        }
+        cursor = Array.isArray(data)
+          ? null
+          : (typeof data.nextCursor === 'number' ? data.nextCursor : (data.nextCursor ? Number(String(data.nextCursor)) : null));
+        let pages = 0;
+        while (cursor !== null && pages < 200) {
+          if (v !== summaryScanVersion.current) return;
+          res = await fetchWithAuth(`${API_BASE_URL}/crm-leads?take=${take}&cursor=${cursor}`);
+          if (!res.ok) break;
+          const data2 = await res.json() as { items?: Lead[]; nextCursor?: unknown };
+          const items2: Lead[] = data2.items || [];
+          for (const l of items2) {
+            total += 1;
+            if (l.status === 'qualified') qualified += 1;
+            if (l.status === 'converted') converted += 1;
+            if (l.createdat && differenceInDays(new Date(), new Date(l.createdat)) <= 7) newCnt += 1;
+          }
+          cursor = typeof data2.nextCursor === 'number' ? data2.nextCursor : (data2.nextCursor ? Number(String(data2.nextCursor)) : null);
+          pages += 1;
+          if (v === summaryScanVersion.current) {
+            setSummaryTotal(total);
+            setSummaryQualified(qualified);
+            setSummaryConverted(converted);
+            setSummaryNew(newCnt);
+          }
+        }
+      } catch {
+        // keep previous
+      }
+    };
+    run();
+  }, [fetchWithAuth, API_BASE_URL, user]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -205,6 +370,38 @@ const Leads = () => {
     if (!activeLead) return;
     setSaving(true);
     try {
+      // Preflight duplicates against currently loaded page (fast feedback)
+      const changedEmail = form.email && form.email.toLowerCase() !== (activeLead.email || '').toLowerCase();
+      const changedPhone = form.phone && form.phone !== activeLead.phone;
+      const changedName = (form.firstname && form.lastname) && (
+        form.firstname.toLowerCase() !== (activeLead.firstname || '').toLowerCase() ||
+        form.lastname.toLowerCase() !== (activeLead.lastname || '').toLowerCase()
+      );
+      const changedLegal = form.legalName && form.legalName.toLowerCase() !== (activeLead.legalName || '').toLowerCase();
+      const changedSsn = form.ssnLast4 && form.ssnLast4 !== activeLead.ssnLast4;
+      if (changedEmail || changedPhone || changedName || changedLegal || changedSsn) {
+        const conflict = leads.some(l => l.id !== activeLead.id && (
+          (changedEmail && l.email?.toLowerCase() === (form.email || '').toLowerCase()) ||
+          (changedPhone && l.phone === form.phone) ||
+          (changedName && l.firstname?.toLowerCase() === (form.firstname || '').toLowerCase() && l.lastname?.toLowerCase() === (form.lastname || '').toLowerCase()) ||
+          (changedLegal && (l as any).legalName?.toLowerCase() === (form.legalName || '').toLowerCase()) ||
+          (changedSsn && (l as any).ssnLast4 === form.ssnLast4)
+        ));
+        if (conflict) {
+          toast({ title: 'Duplicate lead found', description: 'Email, phone, full name, legal name or SSN last 4 already exists.', variant: 'destructive' });
+          return;
+        }
+      }
+      // Enforce: if status is 'signed', require legalName and ssnLast4
+      const statusVal = (form.status || '').toLowerCase();
+      if (statusVal === 'signed') {
+        const legal = (form.legalName || '').trim();
+        const ssn = (form.ssnLast4 || '').trim();
+        if (!legal || !ssn || ssn.length < 4) {
+          toast({ title: 'Missing required fields', description: 'Legal Name and SSN (last 4) are required.', variant: 'destructive' });
+          return;
+        }
+      }
       const res = await fetchWithAuth(`${API_BASE_URL}/crm-leads/${activeLead.id}`, {
         method: 'PUT', // change to PATCH if your API expects
         headers: { 'Content-Type': 'application/json' },
@@ -271,8 +468,8 @@ const Leads = () => {
                   <Target className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{totalLeads}</div>
-                  <p className="text-xs text-muted-foreground">+{newLeads} new this week</p>
+                  <div className="text-2xl font-bold">{summaryTotal}</div>
+                  <p className="text-xs text-muted-foreground">+{summaryNew} new this week</p>
                 </CardContent>
               </Card>
               <Card>
@@ -281,7 +478,7 @@ const Leads = () => {
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{qualifiedLeads}</div>
+                  <div className="text-2xl font-bold">{summaryQualified}</div>
                   <p className="text-xs text-muted-foreground">Qualified leads</p>
                 </CardContent>
               </Card>
@@ -291,7 +488,7 @@ const Leads = () => {
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{conversionRate}%</div>
+                  <div className="text-2xl font-bold">{summaryTotal ? Math.round((summaryConverted / summaryTotal) * 100) : 0}%</div>
                   <p className="text-xs text-muted-foreground">Conversion rate</p>
                 </CardContent>
               </Card>
@@ -319,15 +516,102 @@ const Leads = () => {
                       <Filter className="mr-2 h-4 w-4" />
                       Filter
                     </Button>
+
                   </div>
                 </div>
               </CardHeader>
 
               <CardContent>
-                {loading && leads.length > 0 && (
-                  <div className="px-4 py-2 text-sm text-muted-foreground">Updating…</div>
+                {(loading || scanRunning) && leads.length > 0 && (
+                  <div className="px-4 py-2 text-sm text-muted-foreground">
+                    {scanRunning ? 'Searching more results…' : 'Updating…'}
+                  </div>
                 )}
-                <div className="space-y-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Lead</TableHead>
+                      <TableHead>Company</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Source</TableHead>
+                      <TableHead>Owner</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead className="w-12"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {leads.map((lead) => (
+                      <TableRow key={lead.id}>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <div className="font-medium">{lead.firstname} {lead.lastname}</div>
+                            <div className="text-sm text-muted-foreground flex items-center gap-4">
+                              <span>{lead.email}</span>
+                              {lead.phone && <span>{lead.phone}</span>}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{lead.company}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(lead.status)}>
+                            {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {capitalizeWords(lead.source)}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {(lead.createdby && userMap[lead.createdby]) || ''}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {lead.createdat ? new Date(lead.createdat).toLocaleDateString() : ''}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => {
+                                const params = new URLSearchParams({
+                                  name: `${lead.firstname} ${lead.lastname}`.trim(),
+                                  email: lead.email || '',
+                                  phone: lead.phone || '',
+                                  company: lead.company || '',
+                                });
+                                navigate(`/mock-gen?${params.toString()}`);
+                              }}>
+                                Mock Gen
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => startView(lead)}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                View
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => startEdit(lead)}>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => deleteLead(lead)} className="text-red-600">
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {nextCursor && (
+                  <div className="flex justify-center py-3">
+                    <Button variant="outline" onClick={loadMore}>Load more</Button>
+                  </div>
+                )}
+                <div className="hidden">
                   {leads.map((lead) => (
                     <div key={lead.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                       <div className="flex-1 space-y-1">
@@ -358,8 +642,16 @@ const Leads = () => {
                         </div>
 
                         <div className="flex gap-4 text-sm text-muted-foreground">
-                          <span>{lead.email}</span>
-                          {lead.phone && <span>{lead.phone}</span>}
+                          <span className="flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                            {lead.email}
+                          </span>
+                          {lead.phone && (
+                            <span className="flex items-center gap-1">
+                              <Phone className="h-3 w-3" />
+                              {lead.phone}
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -370,12 +662,12 @@ const Leads = () => {
                           {lead.visastatusid && <Badge variant="outline">{visaStatusMap[lead.visastatusid]}</Badge>}
 
                           {lead.source && (
-                            <span className="text-sm text-muted-foreground">Source: {lead.source}</span>
+                            <span className="text-sm text-muted-foreground">Source: {capitalizeWords(lead.source)}</span>
                           )}
 
-                          {lead.assignedto && (
+                          {(lead.createdby != null) && (
                             <span className="text-sm text-muted-foreground">
-                              Owner: {userMap[lead.assignedto] || lead.assignedto}
+                              Owner: {userMap[String(lead.createdby)] || String(lead.createdby)}
                             </span>
                           )}
 
@@ -443,10 +735,10 @@ const Leads = () => {
                 <ViewField label="Last Name" value={activeLead.lastname} />
                 <ViewField label="Email" value={activeLead.email} />
                 <ViewField label="Phone" value={activeLead.phone} />
-                <ViewField label="Source" value={activeLead.source} />
+                        <ViewField label="Source" value={capitalizeWords(activeLead.source)} />
                 <ViewField
                   label="Owner"
-                  value={(activeLead.assignedto && userMap[activeLead.assignedto]) || '-'}
+                  value={(activeLead.createdby != null && userMap[String(activeLead.createdby)]) || String(activeLead.createdby ?? '-')}
                 />
                 <ViewField label="Legal Name" value={activeLead.legalName} />
                 <ViewField label="SSN (last 4)" value={activeLead.ssnLast4} />
@@ -503,15 +795,13 @@ const Leads = () => {
                   <Label htmlFor="status">Status</Label>
                   <select
                     id="status"
-                    value={form.status || 'new'}
+                    value={form.status || (statuses[0] ?? 'new')}
                     onChange={handleChange('status')}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
                   >
-                    <option value="new">New</option>
-                    <option value="contacted">Contacted</option>
-                    <option value="qualified">Qualified</option>
-                    <option value="unqualified">Unqualified</option>
-                    <option value="converted">Converted</option>
+                    {(statuses.length ? statuses : ['new','contacted','qualified','unqualified','converted']).map((s) => (
+                      <option key={s} value={s}>{capitalizeWords(s)}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -551,12 +841,12 @@ const Leads = () => {
 
                 <div className="grid gap-2">
                   <Label htmlFor="legalName">Legal Name</Label>
-                  <Input id="legalName" value={form.legalName || ''} onChange={handleChange('legalName')} />
+                  <Input id="legalName" value={form.legalName || ''} onChange={handleChange('legalName')} required={(form.status || '').toLowerCase() === 'signed'} />
                 </div>
 
                 <div className="grid gap-2">
                   <Label htmlFor="ssnLast4">SSN (last 4)</Label>
-                  <Input id="ssnLast4" maxLength={4} value={form.ssnLast4 || ''} onChange={handleChange('ssnLast4')} />
+                  <Input id="ssnLast4" maxLength={4} value={form.ssnLast4 || ''} onChange={handleChange('ssnLast4')} required={(form.status || '').toLowerCase() === 'signed'} />
                 </div>
 
                 <div className="grid gap-2">
@@ -605,3 +895,4 @@ const Leads = () => {
 };
 
 export default Leads;
+

@@ -254,9 +254,10 @@ export default function LeadDetails() {
       if (
         existing.some(
           (l) =>
-            l.email === form.email ||
-            l.phone === form.phone ||
-            (form.legalnamessn && l.legalnamessn === form.legalnamessn) ||
+            (form.email && l.email?.toLowerCase() === form.email.toLowerCase()) ||
+            (form.phone && l.phone === form.phone) ||
+            (form.firstname && form.lastname && l.firstname?.toLowerCase() === form.firstname.toLowerCase() && l.lastname?.toLowerCase() === form.lastname.toLowerCase()) ||
+            (form.legalnamessn && l.legalnamessn?.toLowerCase() === form.legalnamessn.toLowerCase()) ||
             (form.last4ssn && l.last4ssn === form.last4ssn)
         )
       ) {
@@ -612,3 +613,5 @@ export default function LeadDetails() {
     </DashboardLayout>
   );
 }
+
+

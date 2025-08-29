@@ -22,6 +22,7 @@ import Profile from './pages/Profile';
 import RoleAccess from './pages/RoleAccess';
 import UserManagement from './pages/UserManagement';
 import CreateUserCard from './pages/CreateUserCard';
+import MockGen from './pages/mock-gen';
 
 // Authentication pages
 import SignIn from './pages/auth/SignIn';
@@ -133,6 +134,7 @@ const App = () => (
               <Route path="/deal-details" element={<ProtectedRoute componentId="deals"><DealDetails /></ProtectedRoute>} />
               <Route path="/leads" element={<ProtectedRoute componentId="leads"><Leads /></ProtectedRoute>} />
               <Route path="/lead-details/:id?" element={<ProtectedRoute componentId="leads"><LeadDetails /></ProtectedRoute>} />
+              <Route path="/mock-gen" element={<ProtectedRoute componentId="leads"><MockGen /></ProtectedRoute>} />
               <Route path="/reports" element={<ProtectedRoute componentId="reports"><Reports /></ProtectedRoute>} />
               <Route path="/report-details" element={<ProtectedRoute componentId="reports"><ReportDetails /></ProtectedRoute>} />
               <Route path="/add-contact" element={<ProtectedRoute componentId="contacts"><AddContact /></ProtectedRoute>} />

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowUp, ArrowDown, Users, TrendingUp, UserPlus, DollarSign, Ticket } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -42,20 +42,54 @@ export function StatsCard({ title, value, change, changeLabel, icon, formatter }
 export function DashboardStats() {
   const { fetchWithAuth, user } = useAuth();
   const [stats, setStats] = useState({ total: 0, newLeads: 0 });
+  const scanVersion = useRef(0);
 
   useEffect(() => {
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-    const uid = user?.userid ?? '';
-    fetchWithAuth(`${API_BASE_URL}/crm-leads?userId=${uid}`)
-      .then(res => res.json())
-      .then((data: { createdat?: string }[]) => {
-        const total = data.length;
-        const newLeads = data.filter(l => l.createdat && differenceInDays(new Date(), new Date(l.createdat)) <= 7).length;
-        setStats({ total, newLeads });
-      })
-      .catch(() => {
-        setStats({ total: 0, newLeads: 0 });
-      });
+    // Frontend background scanner across all pages; no backend changes required
+    const run = async () => {
+      scanVersion.current += 1;
+      const v = scanVersion.current;
+      let total = 0;
+      let newLeads = 0;
+      let cursor: number | null = null;
+      const take = 100; // server allows up to 100
+      try {
+        // First page
+        let res = await fetchWithAuth(`${API_BASE_URL}/crm-leads?take=${take}`);
+        if (!res.ok) throw new Error('Failed to load leads');
+        const data: { items?: { createdat?: string }[]; nextCursor?: unknown } | { createdat?: string }[] = await res.json();
+        const items: { createdat?: string }[] = Array.isArray(data) ? data : (data.items || []);
+        total += items.length;
+        newLeads += items.filter(l => l.createdat && differenceInDays(new Date(), new Date(l.createdat)) <= 7).length;
+        if (v === scanVersion.current) setStats({ total, newLeads });
+        cursor = Array.isArray(data)
+          ? null
+          : (typeof data.nextCursor === 'number'
+              ? data.nextCursor
+              : (data.nextCursor ? Number(String(data.nextCursor)) : null));
+
+        // Subsequent pages
+        let pages = 0;
+        while (cursor !== null && pages < 200) {
+          if (v !== scanVersion.current) return; // cancelled by new run
+          res = await fetchWithAuth(`${API_BASE_URL}/crm-leads?take=${take}&cursor=${cursor}`);
+          if (!res.ok) break;
+          const data2 = await res.json() as { items?: { createdat?: string }[]; nextCursor?: unknown };
+          const items2 = data2.items || [];
+          total += items2.length;
+          newLeads += items2.filter(l => l.createdat && differenceInDays(new Date(), new Date(l.createdat)) <= 7).length;
+          cursor = typeof data2.nextCursor === 'number'
+            ? data2.nextCursor
+            : (data2.nextCursor ? Number(String(data2.nextCursor)) : null);
+          pages += 1;
+          if (v === scanVersion.current) setStats({ total, newLeads });
+        }
+      } catch {
+        // keep whatever we had
+      }
+    };
+    run();
   }, [fetchWithAuth, user]);
 
   const formatCurrency = (value: number | string) => {

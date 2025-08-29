@@ -7,6 +7,9 @@ interface User {
   email: string;
   roleid: number;
   status?: string;
+  managerid?: number | null;
+  departmentid?: number | null;
+  lastlogin?: string | null;
 }
 
 interface AuthContextType {
@@ -30,9 +33,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const stored = localStorage.getItem("auth");
     if (stored) {
-      const { user, token, refreshToken } = JSON.parse(stored);
+      const { user, token, accessToken, refreshToken } = JSON.parse(stored);
       setUser(user);
-      setToken(token);
+      setToken(accessToken || token || null);
       setRefreshTokenValue(refreshToken || null);
     }
   }, []);
@@ -54,11 +57,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error("Account is disabled");
     }
     setUser(data.user);
-    setToken(data.token);
+    const newAccess = data.accessToken || data.token;
+    setToken(newAccess);
     setRefreshTokenValue(data.refreshToken);
     localStorage.setItem(
       "auth",
-      JSON.stringify({ user: data.user, token: data.token, refreshToken: data.refreshToken })
+      JSON.stringify({ user: data.user, accessToken: newAccess, refreshToken: data.refreshToken })
     );
   };
 
@@ -101,11 +105,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       if (!res.ok) return false;
       const data = await res.json();
-      setToken(data.token);
+      const newAccess = data.accessToken || data.token;
+      if (!newAccess) return false;
+      setToken(newAccess);
       setRefreshTokenValue(data.refreshToken ?? refreshTokenValue);
       localStorage.setItem(
         "auth",
-        JSON.stringify({ user, token: data.token, refreshToken: data.refreshToken ?? refreshTokenValue })
+        JSON.stringify({ user, accessToken: newAccess, refreshToken: data.refreshToken ?? refreshTokenValue })
       );
       return true;
     } catch {
@@ -119,9 +125,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (res.ok) {
       const data = await res.json();
       setUser(data);
+      const stored = localStorage.getItem("auth");
+      const prev = stored ? JSON.parse(stored) : {};
       localStorage.setItem(
         "auth",
-        JSON.stringify({ user: data, token, refreshToken: refreshTokenValue })
+        JSON.stringify({ user: data, accessToken: prev.accessToken || token, refreshToken: refreshTokenValue })
       );
     }
   };
