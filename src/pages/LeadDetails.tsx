@@ -105,6 +105,7 @@ export default function LeadDetails() {
   >([]);
   const [originalForm, setOriginalForm] = useState<LeadForm | null>(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const editMode = !!id;
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -228,6 +229,8 @@ export default function LeadDetails() {
 
   const saveLead = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
 
     if (
       !form.firstname ||
@@ -240,54 +243,30 @@ export default function LeadDetails() {
         title: "Please fill all required fields",
         variant: "destructive",
       });
+      setSubmitting(false);
       return;
     }
 
     if (!form.visastatusid) {
       toast({ title: "Visa status is required", variant: "destructive" });
+      setSubmitting(false);
       return;
     }
 
-    if (!editMode) {
-      const uid = user?.userid ?? "";
-      const resp = await fetchWithAuth(
-        `${API_BASE_URL}/crm-leads?userId=${uid}`
-      );
-      const data = await resp.json();
-      const existing: LeadForm[] = Array.isArray(data)
-        ? data
-        : (data?.items as LeadForm[]) || [];
-      if (
-        existing.some(
-          (l) =>
-            (form.email &&
-              l.email?.toLowerCase() === form.email.toLowerCase()) ||
-            (form.phone && l.phone === form.phone) ||
-            (form.firstname &&
-              form.lastname &&
-              l.firstname?.toLowerCase() === form.firstname.toLowerCase() &&
-              l.lastname?.toLowerCase() === form.lastname.toLowerCase()) ||
-            (form.legalnamessn &&
-              l.legalnamessn?.toLowerCase() ===
-                form.legalnamessn.toLowerCase()) ||
-            (form.last4ssn && l.last4ssn === form.last4ssn)
-        )
-      ) {
-        toast({ title: "Duplicate lead found", variant: "destructive" });
-        return;
-      }
-    }
+    // Skip client-side duplicate scan to avoid large slow fetches.
+    // Rely on server constraints; show server error if duplicate.
 
     if (form.status === "signed" && (!form.legalnamessn || !form.last4ssn)) {
       toast({
         title: "Legal Name SSN and Last4 SSN required for signed status",
         variant: "destructive",
       });
+      setSubmitting(false);
       return;
     }
 
     // Build body + method based on mode. For edit, send only changed, non-empty fields.
-    let method: "POST" | "PATCH" = editMode ? "PATCH" : "POST";
+    const method: "POST" | "PATCH" = editMode ? "PATCH" : "POST";
     const url = editMode
       ? `${API_BASE_URL}/crm-leads/${id}`
       : `${API_BASE_URL}/crm-leads`;
@@ -356,11 +335,14 @@ export default function LeadDetails() {
       body: JSON.stringify(body),
     });
 
-    let data: any = null;
+    let data: unknown = null;
     if (res.status !== 204) {
       try {
         data = await res.json();
-      } catch {}
+      } catch (err) {
+        // ignore JSON parse errors
+        void err;
+      }
     }
     if (res.ok) {
       let notificationMsg = "";
@@ -416,11 +398,11 @@ export default function LeadDetails() {
       if (notificationMsg) addNotification(notificationMsg);
       navigate("/leads");
     } else {
-      toast({
-        title: data.message || "Error saving lead",
-        variant: "destructive",
-      });
+      type ApiError = { message?: string } | null;
+      const message = (data as ApiError)?.message || (res.status === 409 ? "Duplicate lead found" : "Error saving lead");
+      toast({ title: message, variant: "destructive" });
     }
+    setSubmitting(false);
   };
 
   const stageFields = true;
@@ -670,7 +652,9 @@ export default function LeadDetails() {
                       />
                     </div>
                   )}
-                  <Button type="submit">Save</Button>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? "Submitting..." : "Save"}
+                  </Button>
                 </form>
               </CardContent>
             </Card>

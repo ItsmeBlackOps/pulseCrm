@@ -80,13 +80,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ): Promise<Response> => {
     const headers = new Headers(init.headers);
     if (token) headers.set("Authorization", `Bearer ${token}`);
+
+    // Lightweight timing instrumentation in dev to spot slow calls
+    const traceEnabled = import.meta.env.DEV === true;
+    const req: Request | undefined =
+      typeof input === "object" && input !== null && (input as Request).url
+        ? (input as Request)
+        : undefined;
+    const method = (init.method ?? req?.method ?? "GET").toString().toUpperCase();
+    const urlStr = typeof input === "string" ? input : req?.url || "";
+    const url = (() => {
+      try {
+        return new URL(urlStr);
+      } catch {
+        return null;
+      }
+    })();
+    const label = `[API] ${method} ${url?.pathname || urlStr}`;
+    const start = performance.now();
+
     const response = await fetch(input, { ...init, headers });
+    const firstDuration = performance.now() - start;
+    if (traceEnabled) {
+      console.info(`${label} -> ${response.status} in ${firstDuration.toFixed(0)}ms`);
+    }
+
     if (response.status === 401 && retry) {
+      const refreshStart = performance.now();
       const refreshed = await refreshToken();
+      const refreshDur = performance.now() - refreshStart;
+      if (traceEnabled) {
+        console.info(`[API] token refresh -> ${refreshed ? "ok" : "fail"} in ${refreshDur.toFixed(0)}ms`);
+      }
       if (refreshed) {
         const retryHeaders = new Headers(init.headers);
-        if (token) retryHeaders.set("Authorization", `Bearer ${token}`);
+        // Use most recent token from localStorage to avoid stale closure
+        try {
+          const stored = localStorage.getItem("auth");
+          const parsed = stored ? JSON.parse(stored) : undefined;
+          const latest = parsed?.accessToken || token;
+          if (latest) retryHeaders.set("Authorization", `Bearer ${latest}`);
+        } catch {
+          if (token) retryHeaders.set("Authorization", `Bearer ${token}`);
+        }
+        const retryStart = performance.now();
         const second = await fetch(input, { ...init, headers: retryHeaders });
+        const retryDur = performance.now() - retryStart;
+        if (traceEnabled) {
+          console.info(`${label} (retry) -> ${second.status} in ${retryDur.toFixed(0)}ms`);
+        }
         if (second.status === 401) logout();
         return second;
       }
