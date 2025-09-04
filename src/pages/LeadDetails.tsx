@@ -106,6 +106,7 @@ export default function LeadDetails() {
   const [originalForm, setOriginalForm] = useState<LeadForm | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [canEdit, setCanEdit] = useState(true);
   const editMode = !!id;
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -126,11 +127,18 @@ export default function LeadDetails() {
 
         setStatuses(columnsData.map((c) => c.title.toLowerCase()));
 
-        const assignableList: { userid: number; name: string }[] = [
-          ...assignableUsersData,
-        ];
-        if (user) {
-          assignableList.unshift({ userid: user.userid, name: user.name });
+        // Build a unique, ordered list for the Assigned To dropdown
+        const seen = new Set<number>();
+        const uniq: { userid: number; name: string }[] = [];
+        if (user && !seen.has(user.userid)) {
+          uniq.push({ userid: user.userid, name: user.name });
+          seen.add(user.userid);
+        }
+        for (const u of assignableUsersData) {
+          if (!seen.has(u.userid)) {
+            uniq.push({ userid: u.userid, name: u.name });
+            seen.add(u.userid);
+          }
         }
 
         if (editMode) {
@@ -140,9 +148,10 @@ export default function LeadDetails() {
           ).then((res) => res.json());
 
           if (leadData.assignedto) {
-            const uid = Number(leadData.assignedto);
-            if (!assignableList.some((u) => u.userid === uid)) {
-              assignableList.push({ userid: uid, name: `User ${uid}` });
+            const aid = Number(leadData.assignedto);
+            if (!seen.has(aid)) {
+              uniq.push({ userid: aid, name: leadData.assignedtoname || `User ${aid}` });
+              seen.add(aid);
             }
           }
 
@@ -156,7 +165,7 @@ export default function LeadDetails() {
             source: leadData.source || "",
             otherSource: leadData.otherSource || leadData.othersource || "",
             notes: leadData.notes || "",
-            assignedto: leadData.assignedto || "",
+            assignedto: leadData.assignedto ? String(leadData.assignedto) : "",
             createdat: leadData.createdat,
             updatedat: leadData.updatedat,
             lastcontactedat: leadData.lastcontactedat,
@@ -169,9 +178,18 @@ export default function LeadDetails() {
           };
           setForm(loaded);
           setOriginalForm(JSON.parse(JSON.stringify(loaded)));
+          try {
+            const ownerId = Number(leadData.createdby);
+            const subsSet = new Set<number>();
+            if (user?.userid != null) subsSet.add(Number(user.userid));
+            assignableUsersData.forEach(u => subsSet.add(Number(u.userid)));
+            setCanEdit(subsSet.has(ownerId));
+          } catch {
+            setCanEdit(false);
+          }
         }
 
-        setAssignable(assignableList);
+        setAssignable(uniq);
       } catch {
         toast({ title: "Failed to load lead details", variant: "destructive" });
       } finally {
@@ -440,6 +458,7 @@ export default function LeadDetails() {
                         name="firstname"
                         value={form.firstname}
                         onChange={handleChange}
+                        disabled={editMode && !canEdit}
                         required
                       />
                     </div>
@@ -450,6 +469,7 @@ export default function LeadDetails() {
                         name="lastname"
                         value={form.lastname}
                         onChange={handleChange}
+                        disabled={editMode && !canEdit}
                         required
                       />
                     </div>
@@ -463,6 +483,7 @@ export default function LeadDetails() {
                         type="email"
                         value={form.email}
                         onChange={handleChange}
+                        disabled={editMode && !canEdit}
                         required
                       />
                     </div>
@@ -473,6 +494,7 @@ export default function LeadDetails() {
                         name="phone"
                         value={form.phone}
                         onChange={handleChange}
+                        disabled={editMode && !canEdit}
                       />
                     </div>
                   </div>
@@ -481,6 +503,7 @@ export default function LeadDetails() {
                     <Select
                       value={form.company}
                       onValueChange={(v) => setForm({ ...form, company: v })}
+                      disabled={editMode && !canEdit}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select company" />
@@ -499,6 +522,7 @@ export default function LeadDetails() {
                     <Select
                       value={form.status}
                       onValueChange={(v) => setForm({ ...form, status: v })}
+                      disabled={editMode && !canEdit}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select status" />
@@ -517,6 +541,7 @@ export default function LeadDetails() {
                     <Select
                       value={form.source?.toLowerCase()}
                       onValueChange={(v) => setForm({ ...form, source: v })}
+                      disabled={editMode && !canEdit}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select source" />
@@ -552,6 +577,7 @@ export default function LeadDetails() {
                       onValueChange={(v) =>
                         setForm({ ...form, visastatusid: Number(v) })
                       }
+                      disabled={editMode && !canEdit}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select visa status" />
@@ -573,6 +599,7 @@ export default function LeadDetails() {
                     <Select
                       value={form.assignedto}
                       onValueChange={(v) => setForm({ ...form, assignedto: v })}
+                      disabled={editMode && !canEdit}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select user" />
@@ -594,17 +621,20 @@ export default function LeadDetails() {
                           type="checkbox"
                           checked={item.checked}
                           onChange={() => toggleChecklistItem(idx)}
+                          disabled={editMode && !canEdit}
                         />
                         <Input
                           value={item.label}
                           onChange={(e) =>
                             updateChecklistItem(idx, e.target.value)
                           }
+                          disabled={editMode && !canEdit}
                         />
                         <Button
                           type="button"
                           variant="ghost"
                           onClick={() => removeChecklistItem(idx)}
+                          disabled={editMode && !canEdit}
                         >
                           Remove
                         </Button>
@@ -614,6 +644,7 @@ export default function LeadDetails() {
                       type="button"
                       variant="outline"
                       onClick={addChecklistItem}
+                      disabled={editMode && !canEdit}
                     >
                       Add Item
                     </Button>
@@ -626,6 +657,7 @@ export default function LeadDetails() {
                         name="legalnamessn"
                         value={form.legalnamessn}
                         onChange={handleChange}
+                        disabled={editMode && !canEdit}
                         required={form.status === "signed"}
                       />
                     </div>
@@ -637,6 +669,7 @@ export default function LeadDetails() {
                         value={form.last4ssn}
                         onChange={handleChange}
                         maxLength={4}
+                        disabled={editMode && !canEdit}
                         required={form.status === "signed"}
                       />
                     </div>
@@ -649,12 +682,18 @@ export default function LeadDetails() {
                         name="notes"
                         value={form.notes}
                         onChange={handleChange}
+                        disabled={editMode && !canEdit}
                       />
                     </div>
                   )}
-                  <Button type="submit" disabled={submitting}>
-                    {submitting ? "Submitting..." : "Save"}
-                  </Button>
+                  <div className="flex items-center gap-3">
+                    <Button type="submit" disabled={submitting || (editMode && !canEdit)}>
+                      {submitting ? "Submitting..." : "Save"}
+                    </Button>
+                    {editMode && !canEdit && (
+                      <span className="text-xs text-muted-foreground">You can only edit your leads or your subordinates' leads.</span>
+                    )}
+                  </div>
                 </form>
               </CardContent>
             </Card>
