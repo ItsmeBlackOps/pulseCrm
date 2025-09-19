@@ -110,6 +110,11 @@ interface Lead {
   legalnamessn?: string;
   last4ssn?: string;
   notes?: string;
+
+   owner?: {
+    name?: string;
+    userid?: number;
+  };
 }
 
 type PanelMode = "view" | "edit";
@@ -172,7 +177,7 @@ const Leads = () => {
               clientSearchMode
                 ? ""
                 : debouncedSearch
-                ? `&q=${encodeURIComponent(debouncedSearch)}`
+                ? `&q=${encodeURIComponent(debouncedSearch)}&owner=${encodeURIComponent(debouncedSearch)}`
                 : ""
             }`
           ),
@@ -232,6 +237,7 @@ const Leads = () => {
             match(l.source) ||
             match(visaStatusMap[l.visastatusid ?? 0]) ||
             match(map[l.assignedto ?? ""]) ||
+            match(l.owner?.name) ||
             dateMatch(l.createdat) ||
             matchList(l.checklist) ||
             match(l.legalnamessn) ||
@@ -297,7 +303,7 @@ const Leads = () => {
         clientSearchMode
           ? ""
           : searchTerm
-          ? `&q=${encodeURIComponent(searchTerm)}`
+          ? `&q=${encodeURIComponent(searchTerm)}&owner=${encodeURIComponent(searchTerm)}`
           : ""
       }`
     );
@@ -332,7 +338,7 @@ const Leads = () => {
           match(l.source) ||
           match(visaStatusMap[l.visastatusid ?? 0]) ||
           match(userMap[l.assignedto ?? ""]) ||
-          dateMatch(l.createdat) ||
+          match(l.owner?.name) ||         dateMatch(l.createdat) ||
           matchList(l.checklist) ||
           match(l.legalnamessn) ||
           match(l.last4ssn) ||

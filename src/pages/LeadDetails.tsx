@@ -309,10 +309,10 @@ export default function LeadDetails() {
       ];
       const patch: Record<string, unknown> = {};
       for (const key of keysToUpdate) {
-        const nextVal = (form as Record<string, unknown>)[key];
+        const nextVal = (form as unknown as Record<string, unknown>)[key];
         if (nextVal === null || nextVal === undefined) continue; // don't send null/undefined
         if (typeof nextVal === "string" && nextVal.trim() === "") continue; // don't blank out
-        const prevVal = (originalForm as Record<string, unknown> | null)?.[key];
+        const prevVal = (originalForm as unknown as Record<string, unknown> | null)?.[key];
         const changed =
           key === "checklist"
             ? JSON.stringify(Array.isArray(nextVal) ? nextVal : []) !==
@@ -371,10 +371,10 @@ export default function LeadDetails() {
             const k = key as keyof LeadForm;
             if (
               JSON.stringify(form[k]) !==
-              JSON.stringify((originalForm as Record<string, unknown>)[k])
+              JSON.stringify((originalForm as unknown as Record<string, unknown>)[k])
             ) {
               changes[k] = {
-                old: (originalForm as Record<string, unknown>)[k],
+                old: (originalForm as unknown as Record<string, unknown>)[k],
                 new: form[k],
               };
             }
