@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LoadingOverlay } from "@/components/ui/loading-overlay";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
@@ -35,6 +35,7 @@ import {
   MoreHorizontal,
   Eye,
   Edit,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import {
   Table,
@@ -50,7 +51,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -63,6 +64,12 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  buildFollowUpStorageKey,
+  normalizeLeadStatuses,
+} from "@/constants/leads";
 
 const visaStatusMap: Record<number, string> = {
   1: "H1B",
@@ -157,6 +164,29 @@ const Leads = () => {
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
   const [form, setForm] = useState<Partial<Lead>>({});
   const [saving, setSaving] = useState(false);
+  const [followUpDate, setFollowUpDate] = useState<string>("");
+  const today = useMemo(() => {
+    const value = new Date();
+    value.setHours(0, 0, 0, 0);
+    return value;
+  }, []);
+  const followUpDateObj = useMemo(
+    () =>
+      followUpDate ? new Date(`${followUpDate}T00:00:00`) : undefined,
+    [followUpDate]
+  );
+  const isFollowUpSelected = (form.status || "").toLowerCase() === "follow-up";
+  const statusOptions = useMemo(() => {
+    const base = [...statuses];
+    const ensure = (value?: string | null) => {
+      if (!value) return;
+      const normalized = value.toLowerCase();
+      if (normalized && !base.includes(normalized)) base.push(normalized);
+    };
+    ensure(form.status as string | undefined);
+    ensure(activeLead?.status);
+    return base;
+  }, [activeLead?.status, form.status, statuses]);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const clientSearchMode =
@@ -194,9 +224,11 @@ const Leads = () => {
         // statuses from columns (same as LeadDetails)
         try {
           const cols: { title: string }[] = await colsRes.json();
-          setStatuses((cols || []).map((c) => c.title.toLowerCase()));
+          setStatuses(
+            normalizeLeadStatuses((cols || []).map((c) => c.title))
+          );
         } catch (e) {
-          // ignore columns fetch failure; fallback statuses will be used
+          setStatuses(normalizeLeadStatuses());
         }
         // Treat empty strings, null, undefined as "empty"
 
@@ -447,6 +479,8 @@ const Leads = () => {
         return "bg-yellow-100 text-yellow-800";
       case "qualified":
         return "bg-green-100 text-green-800";
+      case "not interested":
+        return "bg-red-100 text-red-800";
       case "unqualified":
         return "bg-red-100 text-red-800";
       case "converted":
@@ -494,6 +528,18 @@ const Leads = () => {
   };
 
   // --- Sheet helpers ---
+  const getStoredFollowUpDate = (leadId: number): string => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem(buildFollowUpStorageKey(leadId)) ?? "";
+  };
+
+  const formatFollowUpDisplay = (value: string): string => {
+    if (!value) return "";
+    const parsed = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleDateString();
+  };
+
   const seedForm = (lead: Lead) => {
     setForm({
       id: lead.id,
@@ -503,8 +549,9 @@ const Leads = () => {
       phone: lead.phone,
       company: lead.company,
       source: lead.source ? lead.source.toLowerCase() : undefined,
-      status: lead.status,
+      status: (lead.status || "").toLowerCase(),
       assignedto: lead.assignedto,
+      createdby: lead.createdby,
       visastatusid: lead.visastatusid,
       checklist: (lead.checklist as ChecklistItem[]) || [], // 👈 here
       legalnamessn: lead.legalnamessn,
@@ -516,6 +563,11 @@ const Leads = () => {
   const openLead = (lead: Lead, m: PanelMode) => {
     setActiveLead(lead);
     seedForm(lead);
+    if (lead.id != null) {
+      setFollowUpDate(getStoredFollowUpDate(lead.id));
+    } else {
+      setFollowUpDate("");
+    }
     setMode(m);
     setIsSheetOpen(true);
   };
@@ -655,8 +707,25 @@ const Leads = () => {
           return;
         }
       }
+      if (!form.status) {
+        toast({
+          title: "Please select a status",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const statusVal = form.status.toLowerCase();
+      const requiresFollowUpDate = statusVal === "follow-up";
+      if (requiresFollowUpDate && !followUpDate) {
+        toast({
+          title: "Follow-up date is required",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Enforce: if status is 'signed', require legalnamessn and last4ssn
-      const statusVal = (form.status || "").toLowerCase();
       if (statusVal === "signed") {
         const legal = (form.legalnamessn || "").trim();
         const ssn = (form.last4ssn || "").trim();
@@ -678,6 +747,7 @@ const Leads = () => {
         "company",
         "source",
         "status",
+        "createdby",
         "assignedto",
         "visastatusid",
         "checklist",
@@ -757,6 +827,15 @@ const Leads = () => {
           form.lastname
         } for ${form.company}`
       );
+      if (typeof window !== "undefined" && updated) {
+        const key = buildFollowUpStorageKey(updated.id);
+        if ((updated.status || "").toLowerCase() === "follow-up" && followUpDate) {
+          localStorage.setItem(key, followUpDate);
+        } else {
+          localStorage.removeItem(key);
+          setFollowUpDate("");
+        }
+      }
       setMode("view"); // return to read-only in the same sheet
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Error updating lead";
@@ -771,7 +850,13 @@ const Leads = () => {
     setIsSheetOpen(false);
     setActiveLead(null);
     setMode("view");
+    setFollowUpDate("");
   };
+
+  const activeLeadFollowUpDisplay =
+    activeLead && typeof window !== "undefined"
+      ? formatFollowUpDisplay(getStoredFollowUpDate(activeLead.id))
+      : "";
 
   return (
     <DashboardLayout>
@@ -1150,6 +1235,20 @@ const Leads = () => {
                       }
                     />
                     <ViewField
+                      label="Assigned To"
+                      value={
+                        (activeLead.assignedto != null &&
+                          userMap[String(activeLead.assignedto)]) ||
+                        (activeLead.assignedto ?? "Unassigned")
+                      }
+                    />
+                    {activeLead.status?.toLowerCase() === "follow-up" && (
+                      <ViewField
+                        label="Follow-up Date"
+                        value={activeLeadFollowUpDisplay || "-"}
+                      />
+                    )}
+                    <ViewField
                       label="Legal Name"
                       value={activeLead.legalnamessn}
                     />
@@ -1290,44 +1389,117 @@ const Leads = () => {
 
                     <div className="grid gap-2">
                       <Label htmlFor="status">Status</Label>
-                      <select
-                        id="status"
-                        value={form.status || (statuses[0] ?? "new")}
-                        onChange={handleChange("status")}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                      <Select
+                        value={form.status ?? ""}
+                        onValueChange={(value) => {
+                          setForm((prev) => ({
+                            ...(prev as Partial<Lead>),
+                            status: value,
+                          }));
+                          if (value !== "follow-up") {
+                            setFollowUpDate("");
+                          } else if (activeLead) {
+                            setFollowUpDate(getStoredFollowUpDate(activeLead.id));
+                          }
+                        }}
                       >
-                        {(statuses.length
-                          ? statuses
-                          : [
-                              "new",
-                              "contacted",
-                              "qualified",
-                              "unqualified",
-                              "converted",
-                            ]
-                        ).map((s) => (
-                          <option key={s} value={s}>
-                            {capitalizeWords(s)}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger id="status" className="h-10">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {statusOptions.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {capitalizeWords(s)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {isFollowUpSelected && (
+                      <div className="grid gap-2">
+                        <Label htmlFor="followup-date">Follow-up Date</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className={`w-full justify-start text-left font-normal ${
+                                followUpDate ? "" : "text-muted-foreground"
+                              }`}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {followUpDateObj
+                                ? format(followUpDateObj, "PPP")
+                                : "Pick a date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              initialFocus
+                              mode="single"
+                              selected={followUpDateObj}
+                              onSelect={(date) => {
+                                setFollowUpDate(
+                                  date ? format(date, "yyyy-MM-dd") : ""
+                                );
+                              }}
+                              disabled={(date) => {
+                                const normalized = new Date(date);
+                                normalized.setHours(0, 0, 0, 0);
+                                return normalized < today;
+                              }}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <p className="text-xs text-muted-foreground">
+                          Reminder is stored locally on this device.
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="createdby">Owner</Label>
+                      <Input
+                        id="createdby"
+                        value={
+                          (form.createdby != null &&
+                            userMap[String(form.createdby)]) ||
+                          (form.createdby != null
+                            ? String(form.createdby)
+                            : "Unassigned")
+                        }
+                        readOnly
+                        className="h-10"
+                      />
                     </div>
 
                     <div className="grid gap-2">
-                      <Label htmlFor="assignedto">Owner</Label>
-                      <select
-                        id="assignedto"
-                        value={form.assignedto || ""}
-                        onChange={handleChange("assignedto")}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                      <Label htmlFor="assignedto">Assigned To</Label>
+                      <Select
+                        value={form.assignedto ?? "__unassigned__"}
+                        onValueChange={(value) => {
+                          setForm((prev) => ({
+                            ...(prev as Partial<Lead>),
+                            assignedto:
+                              value && value !== "__unassigned__"
+                                ? value
+                                : undefined,
+                          }));
+                        }}
                       >
-                        <option value="">— Unassigned —</option>
-                        {Object.entries(userMap).map(([id, name]) => (
-                          <option key={id} value={id}>
-                            {name}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger id="assignedto" className="h-10">
+                          <SelectValue placeholder="Select assignee" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                          {Object.entries(userMap).map(([id, name]) => (
+                            <SelectItem key={id} value={id}>
+                              {name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="grid gap-2">

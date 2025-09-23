@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,11 +13,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Calendar as CalendarIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useNotifications } from "@/hooks/useNotifications";
 import { LoadingOverlay } from "@/components/ui/loading-overlay";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import {
+  buildFollowUpStorageKey,
+  normalizeLeadStatuses,
+} from "@/constants/leads";
 
 const companies = [
   { prefix: "VIZ", name: "Vizva Inc." },
@@ -80,6 +87,27 @@ interface LeadForm {
   last4ssn?: string;
 }
 
+function extractLeadId(payload: unknown): number | undefined {
+  if (!payload || typeof payload !== "object") return undefined;
+
+  const directId = (payload as { id?: unknown }).id;
+  if (typeof directId === "number") return directId;
+
+  const nestedLead = (payload as { lead?: unknown }).lead;
+  if (nestedLead && typeof nestedLead === "object") {
+    const nestedId = (nestedLead as { id?: unknown }).id;
+    if (typeof nestedId === "number") return nestedId;
+  }
+
+  const nestedData = (payload as { data?: unknown }).data;
+  if (nestedData && typeof nestedData === "object") {
+    const nestedId = (nestedData as { id?: unknown }).id;
+    if (typeof nestedId === "number") return nestedId;
+  }
+
+  return undefined;
+}
+
 export default function LeadDetails() {
   const { id } = useParams<{ id: string }>();
   const { fetchWithAuth, user } = useAuth();
@@ -92,7 +120,7 @@ export default function LeadDetails() {
     email: "",
     phone: "",
     company: "",
-    status: "lead",
+    status: "",
     source: "",
     otherSource: "",
     notes: "",
@@ -108,6 +136,18 @@ export default function LeadDetails() {
   const [submitting, setSubmitting] = useState(false);
   const [canEdit, setCanEdit] = useState(true);
   const editMode = !!id;
+  const [followUpDate, setFollowUpDate] = useState<string>("");
+  const today = useMemo(() => {
+    const value = new Date();
+    value.setHours(0, 0, 0, 0);
+    return value;
+  }, []);
+  const followUpDateObj = useMemo(
+    () =>
+      followUpDate ? new Date(`${followUpDate}T00:00:00`) : undefined,
+    [followUpDate]
+  );
+  const isFollowUpSelected = (form.status || "").toLowerCase() === "follow-up";
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -125,7 +165,10 @@ export default function LeadDetails() {
           ),
         ]);
 
-        setStatuses(columnsData.map((c) => c.title.toLowerCase()));
+        const normalizedStatuses = normalizeLeadStatuses(
+          columnsData.map((c) => c.title)
+        );
+        setStatuses(normalizedStatuses);
 
         // Build a unique, ordered list for the Assigned To dropdown
         const seen = new Set<number>();
@@ -161,7 +204,7 @@ export default function LeadDetails() {
             email: leadData.email,
             phone: leadData.phone || "",
             company: leadData.company,
-            status: leadData.status,
+            status: (leadData.status || "").toLowerCase(),
             source: leadData.source || "",
             otherSource: leadData.otherSource || leadData.othersource || "",
             notes: leadData.notes || "",
@@ -178,6 +221,27 @@ export default function LeadDetails() {
           };
           setForm(loaded);
           setOriginalForm(JSON.parse(JSON.stringify(loaded)));
+          if (typeof window !== "undefined") {
+            const possibleIdentifiers: Array<string | number> = [];
+            if (typeof leadData.id === "number") possibleIdentifiers.push(leadData.id);
+            if (id) {
+              const numericId = Number(id);
+              if (!Number.isNaN(numericId)) possibleIdentifiers.push(numericId);
+            }
+            if (leadData.email) possibleIdentifiers.push(String(leadData.email).toLowerCase());
+
+            let storedReminder = "";
+            for (const identifier of possibleIdentifiers) {
+              const value = localStorage.getItem(
+                buildFollowUpStorageKey(identifier)
+              );
+              if (value) {
+                storedReminder = value;
+                break;
+              }
+            }
+            setFollowUpDate(storedReminder);
+          }
           try {
             const ownerId = Number(leadData.createdby);
             const subsSet = new Set<number>();
@@ -191,6 +255,7 @@ export default function LeadDetails() {
 
         setAssignable(uniq);
       } catch {
+        setStatuses(normalizeLeadStatuses());
         toast({ title: "Failed to load lead details", variant: "destructive" });
       } finally {
         setLoading(false);
@@ -274,7 +339,22 @@ export default function LeadDetails() {
     // Skip client-side duplicate scan to avoid large slow fetches.
     // Rely on server constraints; show server error if duplicate.
 
-    if (form.status === "signed" && (!form.legalnamessn || !form.last4ssn)) {
+    if (!form.status) {
+      toast({ title: "Please select a status", variant: "destructive" });
+      setSubmitting(false);
+      return;
+    }
+
+    const normalizedStatus = form.status.toLowerCase();
+    const requiresFollowUpDate = normalizedStatus === "follow-up";
+
+    if (requiresFollowUpDate && !followUpDate) {
+      toast({ title: "Follow-up date is required", variant: "destructive" });
+      setSubmitting(false);
+      return;
+    }
+
+    if (normalizedStatus === "signed" && (!form.legalnamessn || !form.last4ssn)) {
       toast({
         title: "Legal Name SSN and Last4 SSN required for signed status",
         variant: "destructive",
@@ -414,6 +494,40 @@ export default function LeadDetails() {
       const msg = editMode ? "Lead updated" : "Lead created";
       toast({ title: msg });
       if (notificationMsg) addNotification(notificationMsg);
+      if (typeof window !== "undefined") {
+        const targets = new Set<string | number>();
+        if (editMode) {
+          if (id) {
+            const numeric = Number(id);
+            if (!Number.isNaN(numeric)) targets.add(numeric);
+          }
+          const updatedId = extractLeadId(data);
+          if (typeof updatedId === "number" && !Number.isNaN(updatedId)) {
+            targets.add(updatedId);
+          }
+        } else {
+          const createdId = extractLeadId(data);
+          if (typeof createdId === "number" && !Number.isNaN(createdId)) {
+            targets.add(createdId);
+          }
+        }
+        if (form.email) {
+          targets.add(form.email.toLowerCase());
+        }
+
+        targets.forEach((identifier) => {
+          const key = buildFollowUpStorageKey(identifier);
+          if (requiresFollowUpDate && followUpDate) {
+            localStorage.setItem(key, followUpDate);
+          } else {
+            localStorage.removeItem(key);
+          }
+        });
+
+        if (!requiresFollowUpDate) {
+          setFollowUpDate("");
+        }
+      }
       navigate("/leads");
     } else {
       type ApiError = { message?: string } | null;
@@ -520,11 +634,14 @@ export default function LeadDetails() {
                   <div className="space-y-2">
                     <Label htmlFor="status">Status</Label>
                     <Select
-                      value={form.status}
-                      onValueChange={(v) => setForm({ ...form, status: v })}
+                      value={form.status || ""}
+                      onValueChange={(v) => {
+                        setForm({ ...form, status: v });
+                        if (v !== "follow-up") setFollowUpDate("");
+                      }}
                       disabled={editMode && !canEdit}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="status">
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -536,6 +653,48 @@ export default function LeadDetails() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {isFollowUpSelected && (
+                    <div className="space-y-2">
+                      <Label htmlFor="followup-date">Follow-up Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={`w-full justify-start text-left font-normal ${
+                              followUpDate ? "" : "text-muted-foreground"
+                            }`}
+                            disabled={editMode && !canEdit}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {followUpDateObj
+                              ? format(followUpDateObj, "PPP")
+                              : "Pick a date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            initialFocus
+                            mode="single"
+                            selected={followUpDateObj}
+                            onSelect={(date) => {
+                              setFollowUpDate(
+                                date ? format(date, "yyyy-MM-dd") : ""
+                              );
+                            }}
+                            disabled={(date) => {
+                              const normalized = new Date(date);
+                              normalized.setHours(0, 0, 0, 0);
+                              return normalized < today;
+                            }}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <p className="text-xs text-muted-foreground">
+                        Reminder is stored locally on this device.
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="source">Source</Label>
                     <Select

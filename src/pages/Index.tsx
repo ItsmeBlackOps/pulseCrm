@@ -3,7 +3,7 @@ import { DashboardStats } from '@/components/dashboard/DashboardStats';
 import { SalesPipeline } from '@/components/dashboard/SalesPipeline';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { TopAgents } from '@/components/dashboard/TopAgents';
-import { RevenueChart } from '@/components/dashboard/RevenueChart';
+import { LeadsTrendChart } from '@/components/dashboard/LeadsTrendChart';
 
 const Index = () => {
   return (
@@ -18,7 +18,7 @@ const Index = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="col-span-2">
-            <RevenueChart />
+            <LeadsTrendChart />
           </div>
           <div className="col-span-1">
             <TopAgents />
